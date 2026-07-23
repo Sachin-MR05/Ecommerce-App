@@ -1,0 +1,49 @@
+[ {
+  "id" : 1,
+  "name" : "Laptop",
+  "description" : "15.6-inch laptop, 16GB RAM, 512GB SSD",
+  "price" : 500.0,
+  "category" : "Electronics",
+  "stock" : 5,
+  "image" : "laptop2.png"
+}, {
+  "id" : 2,
+  "name" : "Mouse",
+  "description" : "Wireless optical mouse",
+  "price" : 800.0,
+  "category" : "Electronics",
+  "stock" : 20,
+  "image" : "mouse.jpg"
+}, {
+  "id" : 3,
+  "name" : "Keyboard",
+  "description" : "Mechanical keyboard with RGB backlight",
+  "price" : 2500.0,
+  "category" : "Electronics",
+  "stock" : 15,
+  "image" : "keyboard.jpg"
+}, {
+  "id" : 4,
+  "name" : "tv",
+  "description" : "nice tv",
+  "price" : 2000.0,
+  "category" : "tv",
+  "stock" : 2,
+  "image" : "TV3.png"
+}, {
+  "id" : 5,
+  "name" : "iPhone",
+  "description" : "HiTech Phone",
+  "price" : 50000.0,
+  "category" : "Phone",
+  "stock" : 5,
+  "image" : "phone4.jpeg"
+}, {
+  "id" : 6,
+  "name" : "iphone12",
+  "description" : "Product from apple",
+  "price" : 100000.0,
+  "category" : "Phone",
+  "stock" : 4,
+  "image" : "phone2.jpeg"
+} ]
