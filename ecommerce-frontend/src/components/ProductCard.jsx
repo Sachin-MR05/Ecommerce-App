@@ -1,9 +1,20 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProductCard({ product, onDelete }) {
   const { addItem } = useCart();
+  const { isAuthenticated, isAdmin } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAddToCart = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    addItem(product.id, 1);
+  };
 
   return (
     <article className="card product-card">
@@ -25,15 +36,19 @@ export default function ProductCard({ product, onDelete }) {
       </div>
 
       <div className="card-actions">
-        <button onClick={() => addItem(product.id, 1)} disabled={product.stock === 0}>
+        <button onClick={handleAddToCart} disabled={product.stock === 0}>
           Add to Cart
         </button>
 
-        <Link className="button-link" to={`/edit-product/${product.id}`}>
-          Edit
-        </Link>
+        {isAdmin && (
+          <>
+            <Link className="button-link" to={`/edit-product/${product.id}`}>
+              Edit
+            </Link>
 
-        {onDelete && <button onClick={() => onDelete(product.id)}>Delete</button>}
+            {onDelete && <button onClick={() => onDelete(product.id)}>Delete</button>}
+          </>
+        )}
       </div>
     </article>
   );

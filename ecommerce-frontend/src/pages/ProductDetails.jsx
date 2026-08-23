@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as productService from '../services/productService';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addItem } = useCart();
+  const { isAuthenticated } = useAuth();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +21,14 @@ export default function ProductDetails() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleAddToCart = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    addItem(product.id, 1);
+  };
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error}</p>;
@@ -42,7 +52,7 @@ export default function ProductDetails() {
         </div>
 
         <div className="card-actions">
-          <button onClick={() => addItem(product.id, 1)} disabled={product.stock === 0}>
+          <button onClick={handleAddToCart} disabled={product.stock === 0}>
             Add to Cart
           </button>
         </div>

@@ -1,14 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as cartService from '../services/cartService';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext(null);
 
+const EMPTY_CART = { items: [], total: 0, totalItems: 0 };
+
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState({ items: [], total: 0, totalItems: 0 });
+  const { isAuthenticated } = useAuth();
+  const [cart, setCart] = useState(EMPTY_CART);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const refreshCart = useCallback(async () => {
+    if (!isAuthenticated) {
+      setCart(EMPTY_CART);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -19,7 +27,7 @@ export function CartProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     refreshCart();
@@ -47,7 +55,7 @@ export function CartProvider({ children }) {
 
   const clear = async () => {
     await cartService.clearCart();
-    setCart({ items: [], total: 0, totalItems: 0 });
+    setCart(EMPTY_CART);
   };
 
   const value = {
