@@ -10,4 +10,18 @@ const apiClient = axios.create({
   }
 });
 
+// Attach the logged-in user's JWT (if any) to every request.
+apiClient.interceptors.request.use((config) => {
+  try {
+    const raw = localStorage.getItem('ecommerce_auth');
+    const auth = raw ? JSON.parse(raw) : null;
+    if (auth?.token) {
+      config.headers.Authorization = `Bearer ${auth.token}`;
+    }
+  } catch {
+    // ignore malformed storage
+  }
+  return config;
+});
+
 export default apiClient;

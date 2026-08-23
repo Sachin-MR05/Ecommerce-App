@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -51,7 +52,8 @@ public class ProductController {
         return ResponseEntity.ok(ProductResponse.fromEntity(product, getBaseUrl(request)));
     }
 
-    // POST /products
+    // POST /products  (admin only)
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest productRequest,
                                                            HttpServletRequest request) {
@@ -61,7 +63,8 @@ public class ProductController {
                 .body(ProductResponse.fromEntity(created, getBaseUrl(request)));
     }
 
-    // PUT /products/{id}
+    // PUT /products/{id}  (admin only)
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ProductResponse> updateProduct(@PathVariable Long id,
                                                            @Valid @RequestBody ProductRequest productRequest,
@@ -70,7 +73,8 @@ public class ProductController {
         return ResponseEntity.ok(ProductResponse.fromEntity(updated, getBaseUrl(request)));
     }
 
-    // DELETE /products/{id}
+    // DELETE /products/{id}  (admin only)
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);
