@@ -27,11 +27,7 @@ public class ProductService {
     }
 
     public List<Product> searchProducts(String keyword) {
-        String lower = keyword.toLowerCase();
-        return productRepository.findAll().stream()
-                .filter(p -> p.getName().toLowerCase().contains(lower)
-                        || (p.getCategory() != null && p.getCategory().toLowerCase().contains(lower)))
-                .toList();
+        return productRepository.findByNameContainingIgnoreCaseOrCategoryContainingIgnoreCase(keyword, keyword);
     }
 
     public Product createProduct(ProductRequest request) {
@@ -41,25 +37,16 @@ public class ProductService {
     }
 
     public Product updateProduct(Long id, ProductRequest request) {
-        // ensures a clean 404 if the id doesn't exist, instead of
-        // silently doing nothing
-        getProductById(id);
-
-        Product product = new Product();
+        Product product = getProductById(id); // 404 if it doesn't exist
         mapRequestToProduct(request, product);
-
-        Product updated = productRepository.update(id, product);
-        if (updated == null) {
-            throw new ResourceNotFoundException("Product not found with id: " + id);
-        }
-        return updated;
+        return productRepository.save(product);
     }
 
     public void deleteProduct(Long id) {
-        boolean deleted = productRepository.deleteById(id);
-        if (!deleted) {
+        if (!productRepository.existsById(id)) {
             throw new ResourceNotFoundException("Product not found with id: " + id);
         }
+        productRepository.deleteById(id);
     }
 
     private void mapRequestToProduct(ProductRequest request, Product product) {

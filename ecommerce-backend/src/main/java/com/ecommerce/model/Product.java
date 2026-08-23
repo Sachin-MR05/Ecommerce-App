@@ -1,20 +1,31 @@
 package com.ecommerce.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.*;
 
 /**
- * Represents a Product entity.
- * Plain POJO (no Lombok dependency at runtime issues) - explicit getters/setters
- * so the class is readable even without an IDE annotation processor configured.
+ * Represents a Product entity, now backed by a PostgreSQL table
+ * instead of the old products.json file.
  */
+@Entity
+@Table(name = "products")
 public class Product {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
     private String name;
+
+    @Column(length = 2000)
     private String description;
+
     private double price;
+
     private String category;
+
     private int stock;
+
     private String image; // just the filename, e.g. "laptop.jpg"
 
     public Product() {
@@ -79,7 +90,6 @@ public class Product {
         this.stock = stock;
     }
 
-    @JsonProperty("image")
     public String getImage() {
         return image;
     }

@@ -13,6 +13,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Every method is scoped to the currently logged-in user's id,
+ * so each customer only ever sees/modifies their own cart.
+ */
 @Service
 public class CartService {
 
@@ -24,63 +28,61 @@ public class CartService {
         this.productRepository = productRepository;
     }
 
-    public CartResponse getCart() {
-        List<CartItemResponse> responses = cartRepository.findAll().stream()
+    public CartResponse getCart(Long userId) {
+        List<CartItemResponse> responses = cartRepository.findByUserId(userId).stream()
                 .map(this::toResponse)
                 .toList();
         return new CartResponse(responses);
     }
 
-    public CartResponse addToCart(CartItemRequest request) {
+    public CartResponse addToCart(Long userId, CartItemRequest request) {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Product not found with id: " + request.getProductId()));
 
-        var existing = cartRepository.findByProductId(request.getProductId());
+        var existing = cartRepository.findByUserIdAndProductId(userId, request.getProductId());
 
         if (existing.isPresent()) {
             CartItem item = existing.get();
             int newQuantity = item.getQuantity() + request.getQuantity();
             checkStock(product, newQuantity);
             item.setQuantity(newQuantity);
-            cartRepository.update(item);
+            cartRepository.save(item);
         } else {
             checkStock(product, request.getQuantity());
             CartItem item = new CartItem();
+            item.setUserId(userId);
             item.setProductId(request.getProductId());
             item.setQuantity(request.getQuantity());
             cartRepository.save(item);
         }
 
-        return getCart();
+        return getCart(userId);
     }
 
-    public CartResponse removeFromCart(Long cartItemId) {
-        boolean removed = cartRepository.deleteById(cartItemId);
-        if (!removed) {
-            throw new ResourceNotFoundException("Cart item not found with id: " + cartItemId);
-        }
-        return getCart();
+    public CartResponse removeFromCart(Long userId, Long cartItemId) {
+        CartItem item = getOwnedItem(userId, cartItemId);
+        cartRepository.deleteById(item.getId());
+        return getCart(userId);
     }
 
-    public CartResponse increaseQuantity(Long cartItemId) {
-        return changeQuantity(cartItemId, 1);
+    public CartResponse increaseQuantity(Long userId, Long cartItemId) {
+        return changeQuantity(userId, cartItemId, 1);
     }
 
-    public CartResponse decreaseQuantity(Long cartItemId) {
-        return changeQuantity(cartItemId, -1);
+    public CartResponse decreaseQuantity(Long userId, Long cartItemId) {
+        return changeQuantity(userId, cartItemId, -1);
     }
 
-    private CartResponse changeQuantity(Long cartItemId, int delta) {
-        CartItem item = cartRepository.findById(cartItemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with id: " + cartItemId));
+    private CartResponse changeQuantity(Long userId, Long cartItemId, int delta) {
+        CartItem item = getOwnedItem(userId, cartItemId);
 
         int newQuantity = item.getQuantity() + delta;
 
         if (newQuantity <= 0) {
             // dropping to zero (or below) removes the item entirely
-            cartRepository.deleteById(cartItemId);
-            return getCart();
+            cartRepository.deleteById(item.getId());
+            return getCart(userId);
         }
 
         if (delta > 0) {
@@ -91,12 +93,22 @@ public class CartService {
         }
 
         item.setQuantity(newQuantity);
-        cartRepository.update(item);
-        return getCart();
+        cartRepository.save(item);
+        return getCart(userId);
     }
 
-    public void clearCart() {
-        cartRepository.clear();
+    public void clearCart(Long userId) {
+        cartRepository.deleteByUserId(userId);
+    }
+
+    // makes sure a customer can't touch another customer's cart item by guessing its id
+    private CartItem getOwnedItem(Long userId, Long cartItemId) {
+        CartItem item = cartRepository.findById(cartItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with id: " + cartItemId));
+        if (!item.getUserId().equals(userId)) {
+            throw new ResourceNotFoundException("Cart item not found with id: " + cartItemId);
+        }
+        return item;
     }
 
     private void checkStock(Product product, int requestedQuantity) {
