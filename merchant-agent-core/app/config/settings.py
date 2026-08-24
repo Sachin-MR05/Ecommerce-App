@@ -11,6 +11,7 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
+    HUGGINGFACE = "huggingface"
     LOCAL = "local"
 
 
@@ -29,9 +30,16 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    llm_provider: LLMProvider = Field(default=LLMProvider.OPENAI, alias="LLM_PROVIDER")
-    llm_model: str = Field(default="gpt-4o-mini", alias="LLM_MODEL")
+    llm_provider: LLMProvider = Field(default=LLMProvider.HUGGINGFACE, alias="LLM_PROVIDER")
+    # Free HuggingFace model - no API token required (anonymous, rate-limited).
+    # Switch to any OpenAI-compatible HF model by changing LLM_MODEL.
+    llm_model: str = Field(default="HuggingFaceH4/zephyr-7b-beta", alias="LLM_MODEL")
     llm_api_key: str = Field(default="", alias="LLM_API_KEY")
+    # Override the LLM provider base URL (e.g. for HuggingFace Inference API).
+    llm_base_url: str = Field(
+        default="https://api-inference.huggingface.co",
+        alias="LLM_BASE_URL",
+    )
 
     tool_service_url: str = Field(..., alias="TOOL_SERVICE_URL")
 
@@ -45,3 +53,4 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Cached Settings instance - construct once per process."""
     return Settings()
+

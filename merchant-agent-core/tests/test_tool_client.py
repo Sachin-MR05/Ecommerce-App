@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -40,22 +42,40 @@ def test_execute_tool_success():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/tools/search_products/execute"
         assert request.method == "POST"
+        body = json.loads(request.content)
+        assert body["toolName"] == "search_products"
+        assert body["arguments"] == {"query": "laptop"}
+        assert body["requestId"].startswith("req-")
         return httpx.Response(
-            200, json={"success": True, "data": [{"id": 1}], "errorCode": None, "errorMessage": None}
+            200,
+            json={"requestId": body["requestId"], "success": True, "result": [{"id": 1, "name": "Laptop"}], "error": None},
         )
 
     client = _client_with_transport(httpx.MockTransport(handler))
 
-    result = client.execute_tool("search_products", {"keyword": "headphones"})
+    result = client.execute_tool("search_products", {"query": "laptop"})
 
     assert result.success is True
-    assert result.data == [{"id": 1}]
+    assert result.result == [{"id": 1, "name": "Laptop"}]
+    assert result.data == [{"id": 1, "name": "Laptop"}]
 
 
 def test_execute_tool_reports_business_failure_without_raising():
     def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
         return httpx.Response(
-            200, json={"success": False, "data": None, "errorCode": "NOT_FOUND", "errorMessage": "missing"}
+            200,
+            json={
+                "requestId": body["requestId"],
+                "success": False,
+                "result": None,
+                "error": {
+                    "code": "PRODUCT_NOT_FOUND",
+                    "message": "Product 999 not found",
+                    "type": "NOT_FOUND",
+                    "details": {},
+                },
+            },
         )
 
     client = _client_with_transport(httpx.MockTransport(handler))
@@ -63,8 +83,9 @@ def test_execute_tool_reports_business_failure_without_raising():
     result = client.execute_tool("get_product", {"productId": 999})
 
     assert result.success is False
-    assert result.error_code == "NOT_FOUND"
-    assert result.error_message == "missing"
+    assert result.error_code == "PRODUCT_NOT_FOUND"
+    assert result.error_message == "Product 999 not found"
+    assert result.error.type == "NOT_FOUND"
 
 
 def test_http_5xx_raises_unavailable_error():

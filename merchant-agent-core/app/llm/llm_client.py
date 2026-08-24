@@ -44,8 +44,8 @@ class LLMClient(ABC):
 
     Implementations only talk to their specific LLM provider - no
     agent-loop, planning, or tool-execution logic belongs here. Swapping
-    OpenAI for another provider (or a local model) means adding a new
-    LLMClient implementation, never touching the agent loop/planner.
+    providers means adding a new LLMClient implementation, never touching
+    the agent loop/planner.
     """
 
     @abstractmethod
@@ -57,9 +57,9 @@ class LLMClient(ABC):
 
 class EchoLLMClient(LLMClient):
     """Deterministic, network-free LLMClient used when no LLM_API_KEY is
-    configured. Lets the rest of the service run locally/in CI without a
-    real provider. NOT suitable for production use - it never actually
-    reasons about tool calls."""
+    configured AND no provider is explicitly set. Lets the rest of the
+    service run locally/in CI without a real provider. NOT suitable for
+    production use - it never actually reasons about tool calls."""
 
     def generate(self, messages: list[LLMMessage], tools: Optional[list[dict[str, Any]]] = None) -> LLMResponse:
         last_user_message = next((m for m in reversed(messages) if m.role == "user"), None)
@@ -127,7 +127,22 @@ class OpenAIChatLLMClient(LLMClient):
 
 def create_llm_client(settings: Settings) -> LLMClient:
     """Factory that picks an LLMClient implementation from configuration.
-    This is the one place that needs to change to add a new provider."""
+    This is the one place that needs to change to add a new provider.
+
+    Provider resolution order:
+      1. LLM_PROVIDER=huggingface  → HuggingFaceLLMClient (free, no token needed)
+      2. LLM_PROVIDER=openai       → OpenAIChatLLMClient (requires LLM_API_KEY)
+      3. No LLM_API_KEY set         → EchoLLMClient (dev/CI fallback)
+    """
+    # Import here to avoid a circular import on the HuggingFace module.
+    from app.llm.huggingface_llm_client import HuggingFaceLLMClient  # noqa: PLC0415
+
+    if settings.llm_provider == LLMProvider.HUGGINGFACE:
+        logger.info(
+            "Using HuggingFaceLLMClient: model=%s (anonymous free tier; set LLM_API_KEY for higher rate limits)",
+            settings.llm_model,
+        )
+        return HuggingFaceLLMClient(settings)
 
     if not settings.llm_api_key:
         logger.warning("LLM_API_KEY is not set - using EchoLLMClient (local/dev only, not a real LLM)")
@@ -140,3 +155,4 @@ def create_llm_client(settings: Settings) -> LLMClient:
         f"No LLMClient implementation is registered for provider '{settings.llm_provider.value}'. "
         "Implement LLMClient for this provider and wire it up in create_llm_client()."
     )
+
