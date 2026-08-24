@@ -63,8 +63,9 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((req, res, e) -> writeJsonError(res, HttpStatus.UNAUTHORIZED, "Please log in to continue"))
-                        .accessDeniedHandler((req, res, e) -> writeJsonError(res, HttpStatus.FORBIDDEN, "You don't have permission to do that"))
+                        .authenticationEntryPoint((req, res, e) -> writeJsonError(res, HttpStatus.UNAUTHORIZED.value(), "Unauthorized", "Please log in to continue"))
+                        .accessDeniedHandler((req, res, e) -> writeJsonError(res, HttpStatus.FORBIDDEN.value(), "Forbidden", "You don't have permission to do that"))
+
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -75,21 +76,24 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/products/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/products/**").hasRole("ADMIN")
                         .requestMatchers("/cart/**").authenticated()
+                        .requestMatchers("/tools/**", "/tools").permitAll()
                         .anyRequest().authenticated()
+
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    private void writeJsonError(jakarta.servlet.http.HttpServletResponse res, HttpStatus status, String message) throws java.io.IOException {
-        res.setStatus(status.value());
+    private void writeJsonError(jakarta.servlet.http.HttpServletResponse res, int statusValue, String errorString, String message) throws java.io.IOException {
+        res.setStatus(statusValue);
         res.setContentType("application/json");
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", LocalDateTime.now());
-        body.put("status", status.value());
-        body.put("error", status.getReasonPhrase());
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", statusValue);
+        body.put("error", errorString);
         body.put("message", message);
         res.getWriter().write(objectMapper.writeValueAsString(body));
     }
+
 }

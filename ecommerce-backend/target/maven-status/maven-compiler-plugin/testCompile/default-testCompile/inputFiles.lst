@@ -1,1 +1,7 @@
 D:\Ecommerce-App\ecommerce-backend\src\test\java\com\ecommerce\EcommerceBackendApplicationTests.java
+D:\Ecommerce-App\ecommerce-backend\src\test\java\com\ecommerce\tools\contract\CommunicationContractTest.java
+D:\Ecommerce-App\ecommerce-backend\src\test\java\com\ecommerce\tools\contract\ToolErrorTest.java
+D:\Ecommerce-App\ecommerce-backend\src\test\java\com\ecommerce\tools\contract\ToolRequestTest.java
+D:\Ecommerce-App\ecommerce-backend\src\test\java\com\ecommerce\tools\contract\ToolResponseTest.java
+D:\Ecommerce-App\ecommerce-backend\src\test\java\com\ecommerce\tools\product\ReadOnlyToolsEndToEndTest.java
+D:\Ecommerce-App\ecommerce-backend\src\test\java\com\ecommerce\tools\product\SearchProductsEndToEndTest.java
