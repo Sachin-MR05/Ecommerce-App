@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import lru_cache
+from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,7 +25,7 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(Path(__file__).resolve().parents[2] / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
@@ -40,6 +41,22 @@ class Settings(BaseSettings):
         default="https://api-inference.huggingface.co",
         alias="LLM_BASE_URL",
     )
+    gemini_api_key: str = Field(
+        default="",
+        alias="GEMINI_API_KEY",
+        validation_alias=AliasChoices("GEMINI_API_KEY", "Gemini_API_Key"),
+    )
+    gemini_base_url: str = Field(
+        default="https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
+        alias="GEMINI_BASE_URL",
+        validation_alias=AliasChoices("GEMINI_BASE_URL", "GEMNI_BASE_URL"),
+    )
+    gemini_fallback_base_url: str = Field(
+        default="",
+        alias="GEMINI_FALLBACK_BASE_URL",
+        validation_alias=AliasChoices("GEMINI_FALLBACK_BASE_URL", "GEMNI_FALLBACK_BASE_URL"),
+    )
+    llm_max_output_tokens: int = Field(default=64, alias="LLM_MAX_OUTPUT_TOKENS")
 
     tool_service_url: str = Field(..., alias="TOOL_SERVICE_URL")
 

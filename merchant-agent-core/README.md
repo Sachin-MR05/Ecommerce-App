@@ -102,9 +102,13 @@ merchant-agent-core/
 
 | Variable                 | Description                                              | Example                 |
 |---------------------------|-----------------------------------------------------------|--------------------------|
-| `LLM_PROVIDER`            | Which `LLMClient` implementation to use                   | `openai`                |
-| `LLM_MODEL`                | Model name for the configured provider                    | `gpt-4o-mini`            |
-| `LLM_API_KEY`               | API key for the configured provider (leave empty for local dev - see below) | |
+| `LLM_PROVIDER`            | Which `LLMClient` implementation to use                   | `huggingface`           |
+| `LLM_MODEL`               | Model name for the configured provider                    | `HuggingFaceH4/zephyr-7b-beta` |
+| `LLM_API_KEY`             | API key for OpenAI/HuggingFace provider (HF optional)     |                          |
+| `GEMINI_API_KEY`          | Optional Gemini key (used for `LLM_PROVIDER=gemini` or HF fallback) |                          |
+| `GEMINI_BASE_URL`         | Gemini generateContent endpoint                            | `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent` |
+| `GEMINI_FALLBACK_BASE_URL`| Optional backup Gemini endpoint when primary returns `503`  |                          |
+| `LLM_MAX_OUTPUT_TOKENS`   | Output-token cap per model call (lower = cheaper/faster)  | `64`                    |
 | `TOOL_SERVICE_URL`         | Base URL of the Java Tool Layer                            | `http://localhost:8080` |
 | `AGENT_MAX_ITERATIONS`      | Max think/act loop iterations before failing safely        | `10`                    |
 | `TOOL_TIMEOUT_SECONDS`      | HTTP timeout (seconds) for calls to the Java Tool Layer     | `30`                    |
