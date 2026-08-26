@@ -39,6 +39,7 @@ class HuggingFaceLLMClient(LLMClient):
     def __init__(self, settings: Settings, client: Optional[httpx.Client] = None):
         self._model = settings.llm_model or _DEFAULT_MODEL
         self._api_key = settings.llm_api_key  # may be empty - that's fine
+        self._max_output_tokens = max(64, settings.llm_max_output_tokens)
         base_url = (settings.llm_base_url or _HF_BASE).rstrip("/")
         self._endpoint = f"{base_url}/models/{self._model}/v1/chat/completions"
         self._client = client or httpx.Client(timeout=settings.tool_timeout_seconds)
@@ -59,7 +60,7 @@ class HuggingFaceLLMClient(LLMClient):
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": [self._to_hf_message(m) for m in messages],
-            "max_new_tokens": 512,
+            "max_new_tokens": self._max_output_tokens,
             "temperature": 0.1,  # low temperature for reliable JSON output
         }
 

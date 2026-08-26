@@ -62,6 +62,14 @@ class AgentLoop:
                 logger.info("Session %s waiting for user clarification", state.session_id)
                 return state
 
+            if decision.action == DecisionAction.SELECT_PRODUCT:
+                state.selected_product_id = decision.selected_product_id
+                state.selected_quantity = decision.selected_quantity
+                msg = f"[Action: selected product {decision.selected_product_id} with quantity {decision.selected_quantity}]"
+                state.add_message("assistant", msg)
+                logger.info("Session %s selected product %s, qty %s", state.session_id, decision.selected_product_id, decision.selected_quantity)
+                continue
+
             if decision.action == DecisionAction.TOOL_CALL:
                 state.status = AgentStatus.TOOL_CALL
                 self._run_tool_call(decision, state)
@@ -73,22 +81,29 @@ class AgentLoop:
             return state
 
     def _run_tool_call(self, decision: Decision, state: AgentState) -> None:
-        state.add_message(
-            "assistant", f"Calling tool '{decision.tool_name}' with arguments {decision.arguments}"
-        )
+        import json as _json
+        # Record the decision JSON as the assistant turn so multi-turn history
+        # stays consistent — the model produced this JSON, so echo it back.
+        decision_json = _json.dumps({
+            "action": "TOOL_CALL",
+            "tool_name": decision.tool_name,
+            "arguments": decision.arguments,
+        })
+        state.add_message("assistant", decision_json)
 
         try:
             result = self._executor.execute(decision, state)
         except ExecutorError as exc:
             logger.error("Session %s - tool execution failed: %s", state.session_id, exc)
-            # Let the agent observe the failure and decide what to do next on
-            # the following iteration, rather than aborting the whole request.
             state.add_message("tool", f"Tool call failed: {exc}")
             return
 
         state.status = AgentStatus.OBSERVING
-        observation = (
-            f"Tool '{decision.tool_name}' result: success={result.success}, data={result.data}, "
-            f"error_code={result.error_code}, error_message={result.error_message}"
-        )
+        # Keep the observation concise so the context doesn't blow up.
+        observation = _json.dumps({
+            "tool": decision.tool_name,
+            "success": result.success,
+            "data": result.data,
+            "error": result.error_message or None,
+        })
         state.add_message("tool", observation)

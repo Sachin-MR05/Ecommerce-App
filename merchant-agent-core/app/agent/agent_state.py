@@ -55,6 +55,9 @@ class AgentState:
     status: AgentStatus = AgentStatus.INITIALIZED
     final_response: Optional[str] = None
     error: Optional[str] = None
+    
+    selected_product_id: Optional[int] = None
+    selected_quantity: Optional[int] = None
 
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 

@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import json
@@ -57,7 +58,8 @@ class Planner:
             '{"action": "TOOL_CALL", "tool_name": "<tool name>", "arguments": { ... }, '
             '"rationale": "<short reason, optional>"}\n'
             '{"action": "FINAL_RESPONSE", "response": "<final answer for the user>"}\n'
-            '{"action": "ASK_USER", "clarification_question": "<question for the user>"}\n\n'
+            '{"action": "ASK_USER", "clarification_question": "<question for the user>"}\n'
+            '{"action": "SELECT_PRODUCT", "selected_product_id": <int>, "selected_quantity": <int>}\n\n'
             f"Tools available for this request: {[t.name for t in state.available_tools]}\n"
         )
         return base_prompt + response_contract

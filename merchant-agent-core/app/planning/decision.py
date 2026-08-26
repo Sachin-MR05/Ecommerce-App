@@ -10,6 +10,7 @@ class DecisionAction(str, Enum):
     TOOL_CALL = "TOOL_CALL"
     FINAL_RESPONSE = "FINAL_RESPONSE"
     ASK_USER = "ASK_USER"
+    SELECT_PRODUCT = "SELECT_PRODUCT"
 
 
 class Decision(BaseModel):
@@ -28,6 +29,9 @@ class Decision(BaseModel):
 
     response: Optional[str] = None
     clarification_question: Optional[str] = None
+    
+    selected_product_id: Optional[int] = None
+    selected_quantity: Optional[int] = None
 
     rationale: Optional[str] = None
 
@@ -39,4 +43,6 @@ class Decision(BaseModel):
             raise ValueError("A FINAL_RESPONSE decision must include response")
         if self.action == DecisionAction.ASK_USER and not self.clarification_question:
             raise ValueError("An ASK_USER decision must include clarification_question")
+        if self.action == DecisionAction.SELECT_PRODUCT and (self.selected_product_id is None or self.selected_quantity is None):
+            raise ValueError("A SELECT_PRODUCT decision must include selected_product_id and selected_quantity")
         return self
