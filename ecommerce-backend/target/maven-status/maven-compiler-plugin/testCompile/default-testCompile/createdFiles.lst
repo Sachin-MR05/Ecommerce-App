@@ -1,0 +1,6 @@
+com\ecommerce\tools\contract\ToolErrorTest.class
+com\ecommerce\tools\product\SearchProductsEndToEndTest.class
+com\ecommerce\tools\contract\ToolResponseTest.class
+com\ecommerce\tools\contract\ToolRequestTest.class
+com\ecommerce\tools\product\ReadOnlyToolsEndToEndTest.class
+com\ecommerce\EcommerceBackendApplicationTests.class
