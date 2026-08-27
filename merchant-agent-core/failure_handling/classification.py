@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from app.failure_handling.error_types import (
+from failure_handling.error_types import (
     ErrorCategory,
     StandardError,
     category_from_tool_error_type,

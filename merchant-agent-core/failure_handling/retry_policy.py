@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.failure_handling.error_types import StandardError
+from failure_handling.error_types import StandardError
 
 
 @dataclass(frozen=True)

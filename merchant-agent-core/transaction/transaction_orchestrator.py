@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
-from payment.exceptions import PaymentError
+from audit.audit_event import AuditEventType
+from audit.audit_service import AuditService
+from failure_handling.failure_handler import FailureHandler
+from failure_handling.recovery import RecoveryAction
+from failure_handling.timeout_handler import TimeoutHandler, TransactionStatus as RecoveryTransactionStatus
+from payment.exceptions import PaymentError, PaymentTimeoutError
 from payment.payment_confirmation import PaymentConfirmation
 from payment.payment_request import PaymentRequest
-from payment.payment_result import PaymentStatus
+from payment.payment_result import PaymentResult, PaymentStatus
 from payment.payment_service import PaymentService
 from transaction.exceptions import (
     CartValidationError,
@@ -21,6 +26,17 @@ from transaction.transaction_state import TERMINAL_STATES, TransactionState
 from transaction.transaction_store import InMemoryTransactionStore, TransactionRecord, TransactionStore
 
 logger = logging.getLogger(__name__)
+
+# Maps the payment layer's own PaymentStatus (from PaymentService.get_payment_status,
+# used only for the post-timeout reconciliation check below) onto the Failure
+# Handling component's provider-agnostic TransactionStatus vocabulary.
+_PAYMENT_STATUS_TO_RECOVERY_STATUS: dict[PaymentStatus, RecoveryTransactionStatus] = {
+    PaymentStatus.SUCCESS: RecoveryTransactionStatus.SUCCESS,
+    PaymentStatus.PENDING: RecoveryTransactionStatus.PENDING,
+    PaymentStatus.PROCESSING: RecoveryTransactionStatus.PENDING,
+    PaymentStatus.FAILED: RecoveryTransactionStatus.FAILED,
+    PaymentStatus.CANCELLED: RecoveryTransactionStatus.FAILED,
+}
 
 
 class TransactionOrchestrator:
@@ -135,10 +151,15 @@ class TransactionOrchestrator:
         payment_service: PaymentService,
         validation_service: Optional[TransactionValidationService] = None,
         store: Optional[TransactionStore] = None,
+        failure_handler: Optional[FailureHandler] = None,
+        audit_service: Optional[AuditService] = None,
     ):
         self._payment_service = payment_service
         self._validation_service = validation_service or TransactionValidationService()
         self._store = store or InMemoryTransactionStore()
+        self._failure_handler = failure_handler
+        self._audit_service = audit_service
+        self._timeout_handler = TimeoutHandler()
 
     # ------------------------------------------------------------------
     # Public API
@@ -157,15 +178,17 @@ class TransactionOrchestrator:
         record = TransactionRecord.new(request.request_id, request.user_id)
         self._store.save(record)
         logger.info("Transaction started transaction_id=%s user_id=%s", record.transaction_id, request.user_id)
+        self._audit(AuditEventType.TRANSACTION_CREATED, record, request.request_id, status="STARTED")
 
         record.state_machine.transition(TransactionState.VALIDATING)
         try:
             self._validation_service.validate(request)
         except TransactionValidationError as exc:
-            return self._fail(record, code="VALIDATION_FAILED", message=str(exc))
+            return self._fail(record, request.request_id, code="VALIDATION_FAILED", message=str(exc))
 
         record.state_machine.transition(TransactionState.VALIDATED)
         logger.info("Transaction validated transaction_id=%s", record.transaction_id)
+        self._audit(AuditEventType.TRANSACTION_STARTED, record, request.request_id, status="VALIDATED")
 
         self._authorization_check(record)
 
@@ -177,17 +200,20 @@ class TransactionOrchestrator:
             idempotency_key=request.request_id,
             metadata=request.metadata,
         )
+        self._audit(AuditEventType.PAYMENT_INITIATED, record, request.request_id, status="STARTED")
         try:
             payment_result = self._payment_service.initiate_payment(payment_request)
         except CartValidationError as exc:
-            return self._fail(record, code="CART_VALIDATION_FAILED", message=str(exc))
+            return self._fail(record, request.request_id, code="CART_VALIDATION_FAILED", message=str(exc))
         except PaymentError as exc:
-            return self._fail(record, code="PAYMENT_INITIATION_FAILED", message=str(exc))
+            return self._fail(
+                record, request.request_id, code="PAYMENT_INITIATION_FAILED", message=str(exc), payment_related=True
+            )
 
         try:
             self._validation_service.reconcile_currency(request.currency, payment_result.currency)
         except TransactionValidationError as exc:
-            return self._fail(record, code="CURRENCY_MISMATCH", message=str(exc))
+            return self._fail(record, request.request_id, code="CURRENCY_MISMATCH", message=str(exc))
 
         record.amount = payment_result.amount
         record.currency = payment_result.currency
@@ -199,6 +225,13 @@ class TransactionOrchestrator:
             record.transaction_id,
             record.amount,
             record.currency,
+        )
+        self._audit(
+            AuditEventType.ORDER_CREATED,
+            record,
+            request.request_id,
+            status="CREATED",
+            metadata={"order_id": record.order_id},
         )
 
         record.state_machine.transition(TransactionState.PAYMENT_PENDING)
@@ -239,28 +272,84 @@ class TransactionOrchestrator:
                 payment_id=record.order_id,
                 confirmation=confirmation,
             )
+        except PaymentTimeoutError as exc:
+            recovered_result = self._handle_payment_timeout(record, request_id, exc)
+            if recovered_result is not None:
+                payment_result = recovered_result
+            else:
+                return self._fail_payment(record, request_id, message=str(exc))
         except PaymentError as exc:
             logger.warning("Payment verification could not be completed transaction_id=%s: %s", record.transaction_id, exc)
-            return self._fail_payment(record, message=str(exc))
+            return self._fail_payment(record, request_id, message=str(exc))
 
         if payment_result.status != PaymentStatus.SUCCESS:
             logger.warning(
                 "Payment not verified transaction_id=%s message=%s", record.transaction_id, payment_result.message
             )
-            return self._fail_payment(record, message=payment_result.message or "Payment could not be completed.")
+            return self._fail_payment(record, request_id, message=payment_result.message or "Payment could not be completed.")
 
         record.state_machine.transition(TransactionState.PAYMENT_SUCCESS)
         record.payment_id = payment_result.payment_id
         logger.info("Payment succeeded transaction_id=%s payment_id=%s", record.transaction_id, record.payment_id)
+        self._audit(AuditEventType.PAYMENT_SUCCESS, record, request_id, status="SUCCESS")
 
         # Order confirmation is a side effect PaymentService.handle_payment_result()
         # already performed (see RazorpayToolPaymentService) - no separate
         # order-confirmation tool call happens here.
         record.state_machine.transition(TransactionState.ORDER_CONFIRMED)
         logger.info("Order confirmed transaction_id=%s order_id=%s", record.transaction_id, record.order_id)
+        self._audit(AuditEventType.TRANSACTION_COMPLETED, record, request_id, status="SUCCESS")
 
         self._store.save(record)
         return self._to_result(record)
+
+    def _handle_payment_timeout(
+        self, record: TransactionRecord, request_id: str, exc: PaymentTimeoutError
+    ) -> Optional[PaymentResult]:
+        """A timeout on the verify-payment call must never be treated as an
+        automatic payment failure - see FailureHandler/TimeoutHandler. Checks
+        the real status via PaymentService.get_payment_status() before
+        deciding anything. Returns a PaymentResult to proceed with as a
+        success if the payment is confirmed to have gone through despite the
+        timeout; returns None if the caller should fall back to the ordinary
+        failure path (payment confirmed failed, still pending reconciliation,
+        or genuinely unknown - none of which this orchestrator's state
+        machine currently has a dedicated non-terminal "pending
+        reconciliation" state for, so those cases are still recorded as
+        FAILED, but only after this explicit check - never assumed).
+        """
+        logger.warning("Payment verification timed out transaction_id=%s: %s", record.transaction_id, exc)
+        self._audit(AuditEventType.PAYMENT_TIMEOUT, record, request_id, status="TIMEOUT", error_message=str(exc))
+
+        if self._failure_handler is None:
+            return None
+
+        self._audit(AuditEventType.RECOVERY_STARTED, record, request_id, status="STARTED")
+
+        status_result: dict[str, Any] = {}
+
+        def _status_check() -> RecoveryTransactionStatus:
+            result = self._payment_service.get_payment_status(record.user_id, record.order_id)
+            status_result["result"] = result
+            return _PAYMENT_STATUS_TO_RECOVERY_STATUS.get(result.status, RecoveryTransactionStatus.UNKNOWN)
+
+        recovery = self._timeout_handler.check_after_timeout(
+            status_check=_status_check,
+            component="TransactionOrchestrator",
+            transaction_id=record.transaction_id,
+            request_id=request_id,
+        )
+        self._audit(
+            AuditEventType.RECOVERY_COMPLETED,
+            record,
+            request_id,
+            status=recovery.action.value,
+            metadata={"reason": recovery.reason},
+        )
+
+        if recovery.action == RecoveryAction.RECOVER:
+            return status_result.get("result")
+        return None
 
     # ------------------------------------------------------------------
     # Future Approval Gate insertion point
@@ -285,19 +374,64 @@ class TransactionOrchestrator:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _fail(self, record: TransactionRecord, *, code: str, message: str) -> TransactionResult:
+    def _fail(
+        self, record: TransactionRecord, request_id: str, *, code: str, message: str, payment_related: bool = False
+    ) -> TransactionResult:
         record.state_machine.transition(TransactionState.FAILED)
         record.error = {"code": code, "message": message}
         self._store.save(record)
         logger.warning("Transaction failed transaction_id=%s code=%s", record.transaction_id, code)
+        if payment_related:
+            self._audit(
+                AuditEventType.PAYMENT_FAILED, record, request_id, status="FAILED", error_code=code, error_message=message
+            )
+        self._audit(
+            AuditEventType.TRANSACTION_FAILED, record, request_id, status="FAILED", error_code=code, error_message=message
+        )
         return self._to_result(record)
 
-    def _fail_payment(self, record: TransactionRecord, *, message: str) -> TransactionResult:
+    def _fail_payment(self, record: TransactionRecord, request_id: str, *, message: str) -> TransactionResult:
         record.state_machine.transition(TransactionState.PAYMENT_FAILED)
         record.state_machine.transition(TransactionState.FAILED)
         record.error = {"code": "PAYMENT_FAILED", "message": message}
         self._store.save(record)
+        self._audit(
+            AuditEventType.PAYMENT_FAILED, record, request_id, status="FAILED", error_code="PAYMENT_FAILED", error_message=message
+        )
+        self._audit(
+            AuditEventType.TRANSACTION_FAILED,
+            record,
+            request_id,
+            status="FAILED",
+            error_code="PAYMENT_FAILED",
+            error_message=message,
+        )
         return self._to_result(record)
+
+    def _audit(
+        self,
+        event_type: AuditEventType,
+        record: TransactionRecord,
+        request_id: str,
+        *,
+        status: str,
+        error_code: Optional[str] = None,
+        error_message: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> None:
+        if self._audit_service is None:
+            return
+        self._audit_service.record_event(
+            event_type,
+            component="TransactionOrchestrator",
+            operation="checkout",
+            status=status,
+            request_id=request_id,
+            transaction_id=record.transaction_id,
+            error_code=error_code,
+            error_message=error_message,
+            metadata=metadata,
+        )
 
     def _to_result(self, record: TransactionRecord) -> TransactionResult:
         pending_action = None

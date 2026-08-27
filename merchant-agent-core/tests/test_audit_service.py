@@ -1,6 +1,6 @@
-from app.audit.audit_event import AuditEvent, AuditEventType
-from app.audit.audit_repository import InMemoryAuditRepository, JsonlAuditRepository
-from app.audit.audit_service import AuditService
+from audit.audit_event import AuditEvent, AuditEventType
+from audit.audit_repository import InMemoryAuditRepository, JsonlAuditRepository
+from audit.audit_service import AuditService
 
 
 # ---------------------------------------------------------------------------

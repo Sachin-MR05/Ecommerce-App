@@ -2,17 +2,17 @@ import time
 
 import pytest
 
-from app.failure_handling.classification import classify_tool_error
-from app.failure_handling.error_types import ErrorCategory, StandardError
-from app.failure_handling.failure_handler import FailureHandler
-from app.failure_handling.idempotency import (
+from failure_handling.classification import classify_tool_error
+from failure_handling.error_types import ErrorCategory, StandardError
+from failure_handling.failure_handler import FailureHandler
+from failure_handling.idempotency import (
     DuplicateOperationInProgressError,
     IdempotencyStatus,
     IdempotencyStore,
 )
-from app.failure_handling.recovery import RecoveryAction
-from app.failure_handling.retry_policy import RetryConfig, RetryPolicy
-from app.failure_handling.timeout_handler import TimeoutHandler, TransactionStatus
+from failure_handling.recovery import RecoveryAction
+from failure_handling.retry_policy import RetryConfig, RetryPolicy
+from failure_handling.timeout_handler import TimeoutHandler, TransactionStatus
 from app.tools.tool_client import (
     ToolClientError,
     ToolServiceTimeoutError,

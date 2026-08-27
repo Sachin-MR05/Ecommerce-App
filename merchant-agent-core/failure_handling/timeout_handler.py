@@ -4,8 +4,8 @@ import logging
 from enum import Enum
 from typing import Callable, Optional
 
-from app.failure_handling.error_types import ErrorCategory, StandardError
-from app.failure_handling.recovery import RecoveryAction, RecoveryResult
+from failure_handling.error_types import ErrorCategory, StandardError
+from failure_handling.recovery import RecoveryAction, RecoveryResult
 
 logger = logging.getLogger(__name__)
 

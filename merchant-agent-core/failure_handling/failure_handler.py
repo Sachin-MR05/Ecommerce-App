@@ -3,19 +3,19 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from app.failure_handling.classification import (
+from failure_handling.classification import (
     classify_tool_client_exception,
     classify_tool_error,
     classify_unexpected_exception,
 )
-from app.failure_handling.error_types import StandardError
-from app.failure_handling.idempotency import (
+from failure_handling.error_types import StandardError
+from failure_handling.idempotency import (
     DuplicateOperationInProgressError,
     IdempotencyRecord,
     IdempotencyStore,
 )
-from app.failure_handling.recovery import RecoveryAction, RecoveryResult
-from app.failure_handling.retry_policy import RetryPolicy
+from failure_handling.recovery import RecoveryAction, RecoveryResult
+from failure_handling.retry_policy import RetryPolicy
 from app.tools.tool_client import ToolClientError
 from contracts.tool_error import ToolError
 

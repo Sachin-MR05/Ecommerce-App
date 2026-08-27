@@ -40,6 +40,7 @@ class MerchantAgentOrchestrator(AgentOrchestrator):
             user_request=request.message,
             session_id=request.session_id,
             user_id=_coerce_user_id(request.user_id),
+            request_id=request.request_id,
         )
         return _to_agent_response(request.request_id, state)
 

@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from app.audit.audit_event import AuditEvent, AuditEventType
-from app.audit.audit_repository import AuditRepository, InMemoryAuditRepository
+from audit.audit_event import AuditEvent, AuditEventType
+from audit.audit_repository import AuditRepository, InMemoryAuditRepository
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from app.failure_handling.error_types import StandardError
+from failure_handling.error_types import StandardError
 
 
 class RecoveryAction(str, Enum):

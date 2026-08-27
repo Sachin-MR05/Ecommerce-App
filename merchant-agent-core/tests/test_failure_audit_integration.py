@@ -1,7 +1,7 @@
-from app.audit.audit_event import AuditEventType
-from app.audit.audit_repository import InMemoryAuditRepository
-from app.audit.audit_service import AuditService
-from app.failure_handling.failure_handler import FailureHandler
+from audit.audit_event import AuditEventType
+from audit.audit_repository import InMemoryAuditRepository
+from audit.audit_service import AuditService
+from failure_handling.failure_handler import FailureHandler
 from payment.exceptions import PaymentTimeoutError
 from payment.mock_payment_service import MockPaymentService
 from payment.payment_confirmation import PaymentConfirmation
@@ -100,8 +100,8 @@ def test_validation_failure_produces_transaction_failed_without_calling_payment_
 
 
 def test_retryable_transport_failure_is_recorded_as_a_retry_decision():
-    from app.failure_handling.failure_handler import FailureHandler
-    from app.failure_handling.recovery import RecoveryAction
+    from failure_handling.failure_handler import FailureHandler
+    from failure_handling.recovery import RecoveryAction
     from app.tools.tool_client import ToolServiceUnavailableError
 
     audit_service = AuditService(InMemoryAuditRepository())

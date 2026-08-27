@@ -43,6 +43,7 @@ class AgentState:
     session_id: str
     user_request: str
     user_id: Optional[int] = None
+    request_id: Optional[str] = None
 
     messages: list[LLMMessage] = field(default_factory=list)
     available_tools: list[ToolDefinition] = field(default_factory=list)
@@ -62,11 +63,17 @@ class AgentState:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @staticmethod
-    def create(user_request: str, session_id: Optional[str] = None, user_id: Optional[int] = None) -> "AgentState":
+    def create(
+        user_request: str,
+        session_id: Optional[str] = None,
+        user_id: Optional[int] = None,
+        request_id: Optional[str] = None,
+    ) -> "AgentState":
         return AgentState(
             session_id=session_id or str(uuid.uuid4()),
             user_request=user_request,
             user_id=user_id,
+            request_id=request_id,
         )
 
     def add_message(self, role: str, content: str) -> None:

@@ -5,7 +5,7 @@ import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from app.audit.audit_event import AuditEvent
+from audit.audit_event import AuditEvent
 
 
 class AuditRepository(ABC):
