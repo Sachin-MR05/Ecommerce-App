@@ -40,6 +40,20 @@ class TransactionRequest(BaseModel):
     user_id        - whose cart/order this transaction is for. Accepts the
                       same int|str shapes MerchantAgentOrchestrator already
                       handles (see app/agent/merchant_agent_orchestrator.py).
+    session_id     - optional, caller-supplied identifier for the browsing/
+                      chat session this checkout came from (e.g. the Agent
+                      Gateway's conversation id, if the caller has one).
+                      Purely informational - the orchestrator never branches
+                      on it. Displays fall back to request_id when a caller
+                      doesn't supply one (see monitoring/store.py), since
+                      request_id is always present and unique per attempt.
+    transaction_type - optional, caller-supplied label for what kind of
+                      transaction this is (e.g. "checkout", "refund").
+                      Purely informational, like session_id - this
+                      orchestrator's workflow does not vary by it today (it
+                      only implements checkout), but the field exists so a
+                      future refund/reorder flow doesn't need a contract
+                      change to be distinguishable in monitoring.
     currency       - optional, client-declared currency. Informational only:
                       the orchestrator cross-checks it against the
                       authoritative currency returned by the payment
@@ -57,6 +71,8 @@ class TransactionRequest(BaseModel):
 
     request_id: str = Field(..., min_length=1)
     user_id: Union[int, str] = Field(...)
+    session_id: Optional[str] = None
+    transaction_type: str = "checkout"
     currency: Optional[str] = None
     payment_method: str = "CARD"
     metadata: dict[str, Any] = Field(default_factory=dict)

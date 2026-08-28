@@ -36,6 +36,35 @@ def test_execute_reaches_payment_pending_with_authoritative_amount():
     assert len(payment_service.initiate_calls) == 1
 
 
+def test_execute_propagates_session_id_and_transaction_type_to_the_record():
+    payment_service = MockPaymentService(amount=150000, currency="INR")
+    orchestrator = TransactionOrchestrator(payment_service=payment_service)
+
+    request = TransactionRequest(
+        request_id="req-session-001",
+        user_id=42,
+        session_id="chat-session-abc",
+        transaction_type="checkout",
+    )
+    orchestrator.execute(request)
+
+    [record] = orchestrator.list_transactions()
+    assert record.session_id == "chat-session-abc"
+    assert record.transaction_type == "checkout"
+
+
+def test_execute_defaults_session_id_and_transaction_type_when_not_supplied():
+    payment_service = MockPaymentService(amount=150000, currency="INR")
+    orchestrator = TransactionOrchestrator(payment_service=payment_service)
+
+    request = TransactionRequest(request_id="req-no-session-001", user_id=42)
+    orchestrator.execute(request)
+
+    [record] = orchestrator.list_transactions()
+    assert record.session_id is None  # caller didn't supply one - monitoring falls back to request_id
+    assert record.transaction_type == "checkout"
+
+
 def test_confirm_payment_success_reaches_order_confirmed():
     payment_service = MockPaymentService(verification_result=True)
     orchestrator = TransactionOrchestrator(payment_service=payment_service)

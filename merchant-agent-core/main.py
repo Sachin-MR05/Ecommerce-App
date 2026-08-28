@@ -14,6 +14,9 @@ from app.gateway.wiring import include_gateway
 from app.llm.llm_client import create_llm_client
 from app.llm.prompt_manager import PromptManager
 from app.tools.tool_client import ToolClient
+from monitoring.llm_instrumentation import TimingLLMClient
+from monitoring.store import MonitoringStore
+from monitoring.wiring import include_monitoring
 from payment.payment_service import RazorpayToolPaymentService
 from tools.order.order_tool_adapter import OrderToolAdapter
 from tools.payment.razorpay_payment_tool_adapter import RazorpayPaymentToolAdapter
@@ -35,7 +38,17 @@ def create_app() -> FastAPI:
     logger.info("Starting merchant-agent-core (tool service: %s)", settings.tool_service_url)
 
     tool_client = ToolClient(settings)
-    llm_client = create_llm_client(settings)
+
+    # Created here (rather than inside monitoring/wiring.py) so it can be
+    # threaded into the LLM timing wrapper below before the monitoring
+    # module is mounted - include_monitoring() reuses this same instance
+    # instead of creating its own.
+    monitoring_store = MonitoringStore()
+
+    # Wraps whatever provider create_llm_client() picked (OpenAI/Gemini/
+    # HuggingFace/Echo/Fallback) with latency timing only - no behavior,
+    # retry, or fallback logic changes. See monitoring/llm_instrumentation.py.
+    llm_client = TimingLLMClient(create_llm_client(settings), on_latency=monitoring_store.record_llm_latency)
     prompt_manager = PromptManager()
 
     # Deterministic Failure Handling + append-only Audit Service, shared by
@@ -83,6 +96,19 @@ def create_app() -> FastAPI:
     application.state.failure_handler = failure_handler
 
     include_gateway(application, orchestrator)  # adds /agent/message, /health, /ready
+
+    # Monitoring module (dashboard backend) - REST + WebSocket, read-only
+    # observer of audit_service/transaction_orchestrator/the LLM client.
+    # See monitoring/wiring.py. Mounted last so it never affects error
+    # handler or middleware ordering for the existing Gateway routes above.
+    include_monitoring(
+        application,
+        audit_service=audit_service,
+        transaction_orchestrator=transaction_orchestrator,
+        tool_service_url=settings.tool_service_url,
+        dashboard_cors_origins=settings.dashboard_cors_origins,
+        store=monitoring_store,
+    )
 
     @application.on_event("shutdown")
     def shutdown() -> None:

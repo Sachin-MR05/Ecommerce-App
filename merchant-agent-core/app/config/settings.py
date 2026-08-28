@@ -65,6 +65,12 @@ class Settings(BaseSettings):
 
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
+    # Comma-separated list of origins allowed to call this API and open the
+    # /monitoring/ws WebSocket from a browser - the monitoring-dashboard
+    # Vite dev server (http://localhost:5173) by default. Only used by
+    # monitoring/wiring.py's CORS setup; unrelated to Java Tool Layer auth.
+    dashboard_cors_origins: str = Field(default="http://localhost:5173", alias="DASHBOARD_CORS_ORIGINS")
+
 
 @lru_cache
 def get_settings() -> Settings:

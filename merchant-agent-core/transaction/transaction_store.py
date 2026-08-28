@@ -22,6 +22,8 @@ class TransactionRecord:
     request_id: str
     transaction_id: str
     user_id: Union[int, str]
+    session_id: Optional[str] = None
+    transaction_type: str = "checkout"
 
     state_machine: TransactionStateMachine = field(default_factory=TransactionStateMachine)
 
@@ -34,11 +36,18 @@ class TransactionRecord:
     error: Optional[dict[str, str]] = None
 
     @staticmethod
-    def new(request_id: str, user_id: Union[int, str]) -> "TransactionRecord":
+    def new(
+        request_id: str,
+        user_id: Union[int, str],
+        session_id: Optional[str] = None,
+        transaction_type: str = "checkout",
+    ) -> "TransactionRecord":
         return TransactionRecord(
             request_id=request_id,
             transaction_id=f"txn-{request_id}",
             user_id=user_id,
+            session_id=session_id,
+            transaction_type=transaction_type,
         )
 
     @property
@@ -61,6 +70,17 @@ class TransactionStore(ABC):
     def save(self, record: TransactionRecord) -> None:
         raise NotImplementedError
 
+    @abstractmethod
+    def list_all(self) -> list[TransactionRecord]:
+        """All known records, most-recently-saved order not guaranteed.
+
+        Added for read-only observability (see monitoring/), which needs to
+        enumerate transactions without the orchestrator exposing anything
+        beyond get/save. A future database-backed TransactionStore should
+        implement this as a bounded, indexed query - not a full table scan.
+        """
+        raise NotImplementedError
+
 
 class InMemoryTransactionStore(TransactionStore):
     """Default TransactionStore for tests, local development, and a single
@@ -79,3 +99,6 @@ class InMemoryTransactionStore(TransactionStore):
 
     def save(self, record: TransactionRecord) -> None:
         self._records[record.request_id] = record
+
+    def list_all(self) -> list[TransactionRecord]:
+        return list(self._records.values())

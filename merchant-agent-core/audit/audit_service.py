@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from audit.audit_event import AuditEvent, AuditEventType
 from audit.audit_repository import AuditRepository, InMemoryAuditRepository
 
 logger = logging.getLogger(__name__)
+
+AuditEventListener = Callable[[AuditEvent], None]
 
 
 class AuditService:
@@ -17,10 +19,22 @@ class AuditService:
     its own decision; the Audit Service does not evaluate, retry, or
     reject that decision, it only logs it durably and makes it traceable
     by request_id/transaction_id/event_id.
+
+    Optional observers (`add_listener`) are notified, in-process, with the
+    same AuditEvent right after it is appended. This is the seam the
+    monitoring module (see monitoring/wiring.py) uses to build a real-time
+    view of the system without this service knowing monitoring exists, and
+    without any caller of `record_event` changing - a listener exception is
+    caught and logged so a misbehaving observer can never break the actual
+    audit trail or the caller's request.
     """
 
     def __init__(self, repository: Optional[AuditRepository] = None):
         self._repository = repository or InMemoryAuditRepository()
+        self._listeners: list[AuditEventListener] = []
+
+    def add_listener(self, listener: AuditEventListener) -> None:
+        self._listeners.append(listener)
 
     def record_event(
         self,
@@ -58,6 +72,11 @@ class AuditService:
             transaction_id,
             event.event_id,
         )
+        for listener in self._listeners:
+            try:
+                listener(event)
+            except Exception:  # noqa: BLE001 - a listener must never break audit recording
+                logger.exception("AuditEvent listener raised; continuing")
         return event
 
     def get_transaction_history(self, transaction_id: str) -> list[AuditEvent]:

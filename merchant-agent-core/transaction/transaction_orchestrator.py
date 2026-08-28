@@ -165,6 +165,13 @@ class TransactionOrchestrator:
     # Public API
     # ------------------------------------------------------------------
 
+    def list_transactions(self) -> list[TransactionRecord]:
+        """Read-only snapshot of every known transaction record, for
+        observability (see monitoring/). Never used by any business-logic
+        path in this class - execute()/confirm_payment() only ever look up
+        a single record via self._store.get()."""
+        return self._store.list_all()
+
     def execute(self, request: TransactionRequest) -> TransactionResult:
         existing = self._store.get(request.request_id)
         if existing is not None:
@@ -175,7 +182,12 @@ class TransactionOrchestrator:
             )
             return self._to_result(existing)
 
-        record = TransactionRecord.new(request.request_id, request.user_id)
+        record = TransactionRecord.new(
+            request.request_id,
+            request.user_id,
+            session_id=request.session_id,
+            transaction_type=request.transaction_type,
+        )
         self._store.save(record)
         logger.info("Transaction started transaction_id=%s user_id=%s", record.transaction_id, request.user_id)
         self._audit(AuditEventType.TRANSACTION_CREATED, record, request.request_id, status="STARTED")
