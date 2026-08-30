@@ -78,8 +78,9 @@ public class OrderService {
         saved.setRazorpayOrderId(razorpayOrderId);
         orderRepository.save(saved);
 
+        String paymentLink = razorpayService.createPaymentLink(razorpayOrderId, amountInPaise);
         return new CheckoutResponse(saved.getId(), razorpayOrderId, amountInPaise,
-                razorpayService.getCurrency(), razorpayService.getKeyId());
+                razorpayService.getCurrency(), razorpayService.getKeyId(), paymentLink);
     }
 
     /**

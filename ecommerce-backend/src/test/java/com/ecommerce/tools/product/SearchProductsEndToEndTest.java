@@ -56,7 +56,7 @@ class SearchProductsEndToEndTest {
     // -----------------------------------------------------------------------
 
     private CheckoutResponse sampleCheckout() {
-        return new CheckoutResponse(100L, "rzp_order_abc123", 29900L, "INR", "rzp_test_key");
+        return new CheckoutResponse(100L, "rzp_order_abc123", 29900L, "INR", "rzp_test_key", null);
     }
 
     private OrderResponse sampleOrder(Long id, OrderStatus status) {
