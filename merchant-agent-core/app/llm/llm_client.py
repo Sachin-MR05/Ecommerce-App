@@ -103,11 +103,15 @@ class OpenAIChatLLMClient(LLMClient):
         )
 
     def generate(self, messages: list[LLMMessage], tools: Optional[list[dict[str, Any]]] = None) -> LLMResponse:
+        openai_messages = [self._to_openai_message(m) for m in messages]
+        if openai_messages and openai_messages[-1]["role"] == "assistant":
+            openai_messages.append({"role": "user", "content": "Continue."})
         payload: dict[str, Any] = {
             "model": self._model,
-            "messages": [self._to_openai_message(m) for m in messages],
+            "messages": openai_messages,
             "max_tokens": self._max_tokens,
         }
+
 
         try:
             response = self._client.post(

@@ -79,3 +79,52 @@ def test_retry_count_tracked_per_transaction():
 
     summary = store.failure_summary()
     assert summary.retry_count == 3
+
+
+def test_merchant_agent_level_failures_are_not_misattributed_to_transaction_orchestrator():
+    """Regression test: MerchantAgent records its own request-lifecycle
+    failures (e.g. the Java Tool Layer being unreachable during tool
+    discovery, which fails before any checkout transaction exists) using
+    component="MerchantAgent" and the *same* generic AuditEventType values
+    (REQUEST_RECEIVED, TRANSACTION_FAILED) that TransactionOrchestrator
+    uses for real checkout failures. Service attribution must key off
+    `component`, not just `event_type`, or every agent-side outage shows up
+    mislabeled as a checkout/transaction-orchestrator problem on the
+    dashboard - found by live-testing the actual /agent/message endpoint
+    with the Java Tool Layer down."""
+    store = MonitoringStore()
+
+    event = AuditEvent.new(
+        request_id="req-agent-1",
+        event_type=AuditEventType.TRANSACTION_FAILED,
+        component="MerchantAgent",
+        operation="agent_run",
+        status="FAILED",
+        transaction_id=None,
+        error_message="Could not reach tool service: Connection refused",
+    )
+    failure = store.on_audit_event(event)
+
+    assert failure is not None
+    assert failure.service == "merchant_agent"
+
+    activity = store.audit_activity(limit=10)
+    assert activity[0].service == "merchant_agent"
+
+    summary = store.failure_summary()
+    assert summary.failures_by_service == {"merchant_agent": 1}
+    assert "transaction_orchestrator" not in summary.failures_by_service
+
+
+def test_checkout_payment_failure_still_attributes_to_payment_service_regardless_of_component():
+    store = MonitoringStore()
+    event = AuditEvent.new(
+        request_id="req-checkout-1",
+        event_type=AuditEventType.PAYMENT_FAILED,
+        component="TransactionOrchestrator",
+        operation="confirm_payment",
+        status="FAILED",
+        transaction_id="txn-1",
+    )
+    failure = store.on_audit_event(event)
+    assert failure.service == "payment_service"

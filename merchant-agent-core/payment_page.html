@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <title>Pay for Order #15</title>
+
+  <style>
+
+    body { font-family: Arial, sans-serif; max-width: 500px; margin: 80px auto; text-align: center; }
+
+    h2 { color: #333; }
+
+    .amount { font-size: 2em; color: #1a73e8; font-weight: bold; }
+
+    .btn { background: #528FF0; color: white; border: none; padding: 14px 40px;
+
+            font-size: 16px; border-radius: 6px; cursor: pointer; margin-top: 20px; }
+
+    .btn:hover { background: #3a6fd8; }
+
+    #status { margin-top: 30px; padding: 20px; border-radius: 8px; display: none; }
+
+    .success { background: #e6f4ea; color: #137333; border: 1px solid #34a853; }
+
+    .error { background: #fce8e6; color: #c5221f; border: 1px solid #ea4335; }
+
+    pre { text-align: left; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px; }
+
+  </style>
+
+</head>
+
+<body>
+
+  <h2>Complete Your Purchase</h2>
+
+  <p>iPhone x 1</p>
+
+  <div class="amount">Rs 50,000.00</div>
+
+  <p>Order ID: <code>order_TVXyAIhkaTZ3PA</code></p>
+
+
+
+  <button class="btn" onclick="openRazorpay()">Pay Now with Razorpay</button>
+
+
+
+  <div id="status"></div>
+
+
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <script>
+
+    function openRazorpay() {
+
+      var options = {
+
+        key: "rzp_test_TT9dgvW6FBwmgm",
+
+        amount: "5000000",
+
+        currency: "INR",
+
+        name: "Ecommerce App",
+
+        description: "iPhone x 1 - Order #15",
+
+        order_id: "order_TVXyAIhkaTZ3PA",
+
+        handler: function(response) {
+
+          showStatus("Verifying payment...", "");
+
+          fetch("http://localhost:8080/tools/verify_payment/execute", {
+
+            method: "POST",
+
+            headers: {"Content-Type": "application/json"},
+
+            body: JSON.stringify({
+
+              context: {userId: 1},
+
+              arguments: {
+
+                razorpayOrderId: response.razorpay_order_id,
+
+                razorpayPaymentId: response.razorpay_payment_id,
+
+                razorpaySignature: response.razorpay_signature
+
+              }
+
+            })
+
+          })
+
+          .then(r => r.json())
+
+          .then(data => {
+
+            if (data.success && data.result.verified) {
+
+              showStatus(
+
+                "Payment Successful! Order #" + data.result.order.id + " is PAID.<br>" +
+
+                "<pre>" + JSON.stringify(data.result.order, null, 2) + "</pre>",
+
+                "success"
+
+              );
+
+            } else {
+
+              showStatus("Verification failed: " + JSON.stringify(data), "error");
+
+            }
+
+          })
+
+          .catch(e => showStatus("Error: " + e, "error"));
+
+        },
+
+        prefill: {name: "Test Buyer", email: "test@example.com", contact: "9999999999"},
+
+        theme: {color: "#528FF0"}
+
+      };
+
+      var rzp = new Razorpay(options);
+
+      rzp.open();
+
+    }
+
+
+
+    function showStatus(msg, type) {
+
+      var el = document.getElementById("status");
+
+      el.innerHTML = msg;
+
+      el.className = type;
+
+      el.style.display = "block";
+
+    }
+
+  </script>
+
+</body>
+
+</html>
+

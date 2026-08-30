@@ -315,3 +315,37 @@ def test_agent_never_confirms_cart_add_without_tool_success():
     # The tool result must record the failure
     assert state.tool_results[0].result.success is False
     assert state.tool_results[0].result.error_code == "INSUFFICIENT_STOCK"
+
+
+def test_agent_degrades_gracefully_when_llm_provider_is_unavailable():
+    """Regression test: an LLM provider outage/timeout during the agent
+    loop (not just during tool discovery) must be caught and turned into a
+    graceful AgentStatus.FAILED with a buyer-facing message and an audit
+    event - never an uncaught exception that reaches the Gateway as an
+    opaque 500 with no audit trail at all. Found by live-testing
+    /agent/message with the real LLM provider unreachable: the request
+    disappeared from the audit trail after REQUEST_RECEIVED and the
+    Gateway returned a generic 500."""
+    from audit.audit_service import AuditService
+    from app.llm.llm_client import LLMUnavailableError
+
+    class UnavailableLLMClient(LLMClient):
+        def generate(self, messages, tools=None):
+            raise LLMUnavailableError("Could not reach the LLM provider: connection refused")
+
+    tool_client = StubToolClient(tools=[SEARCH_TOOL], execute_results={})
+    audit_service = AuditService()
+    agent = MerchantAgent(
+        llm_client=UnavailableLLMClient(),
+        tool_client=tool_client,
+        audit_service=audit_service,
+    )
+
+    state = agent.run(user_request="show me running shoes", user_id=42, session_id="s1")
+
+    assert state.status == AgentStatus.FAILED
+    assert state.error and "temporarily unavailable" in state.error.lower()
+
+    events = audit_service._repository.get_by_request(state.request_id or state.session_id)  # noqa: SLF001
+    event_types = [e.event_type.value for e in events]
+    assert "TRANSACTION_FAILED" in event_types

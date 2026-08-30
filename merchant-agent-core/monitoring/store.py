@@ -64,29 +64,62 @@ _FAILURE_EVENTS = frozenset(
     }
 )
 
-# Best-effort event-type -> logical-service attribution for the "failures
-# by service" breakdown. Audit events from this codebase's Transaction
-# Orchestrator all carry component="TransactionOrchestrator" (see
-# transaction_orchestrator.py's `_audit` helper), so the event *type* -
-# not the component field - is what actually distinguishes payment
-# failures from generic transaction failures here.
-_SERVICE_FOR_EVENT_TYPE: dict[AuditEventType, str] = {
-    AuditEventType.PAYMENT_FAILED: "payment_service",
-    AuditEventType.PAYMENT_TIMEOUT: "payment_service",
-    AuditEventType.PAYMENT_SUCCESS: "payment_service",
-    AuditEventType.PAYMENT_INITIATED: "payment_service",
-    AuditEventType.TOOL_FAILURE: "agent_gateway",
-    AuditEventType.TOOL_CALL: "agent_gateway",
-    AuditEventType.TOOL_SUCCESS: "agent_gateway",
-    AuditEventType.RETRY_STARTED: "failure_handling",
-    AuditEventType.RETRY_COMPLETED: "failure_handling",
-    AuditEventType.RECOVERY_STARTED: "failure_handling",
-    AuditEventType.RECOVERY_COMPLETED: "failure_handling",
+# Service attribution for the "failures by service" / audit-activity
+# breakdowns, keyed by (component, event_type). `component` is the
+# authoritative signal - MerchantAgent, Executor, and TransactionOrchestrator
+# all reuse the same generic AuditEventType vocabulary (TRANSACTION_FAILED,
+# REQUEST_RECEIVED, RETRY_STARTED, etc.) for their own, different-layer
+# lifecycles (see app/agent/merchant_agent.py's `_audit` docstring: it
+# explicitly records request/transaction-level events that sit *above* any
+# single tool call, using the same AuditEventType.TRANSACTION_FAILED a
+# checkout failure would use). Keying off event_type alone - as an earlier
+# version of this file did - mislabels every agent-level failure (e.g. the
+# Java Tool Layer being unreachable during tool discovery, which fails
+# before a checkout transaction ever starts) as "transaction_orchestrator",
+# which is actively misleading for on-call triage.
+_COMPONENT_TO_SERVICE: dict[str, str] = {
+    "MerchantAgent": "merchant_agent",
+    "TransactionOrchestrator": "transaction_orchestrator",
+    # Executor runs the agent's tool-calling loop, not the Gateway's HTTP
+    # layer - there is no dedicated "Executor" entry in the dashboard's
+    # fixed service list (see monitoring/health.py), so its events are
+    # attributed to Merchant Agent, refined below for retry/recovery.
+    "Executor": "merchant_agent",
 }
-_DEFAULT_SERVICE = "transaction_orchestrator"
 
+# Within a component, some event types belong to a more specific
+# sub-service regardless of which component recorded them.
+_PAYMENT_EVENT_TYPES = frozenset(
+    {
+        AuditEventType.PAYMENT_FAILED,
+        AuditEventType.PAYMENT_TIMEOUT,
+        AuditEventType.PAYMENT_SUCCESS,
+        AuditEventType.PAYMENT_INITIATED,
+    }
+)
+_RETRY_RECOVERY_EVENT_TYPES = frozenset(
+    {
+        AuditEventType.RETRY_STARTED,
+        AuditEventType.RETRY_COMPLETED,
+        AuditEventType.RECOVERY_STARTED,
+        AuditEventType.RECOVERY_COMPLETED,
+    }
+)
 _TERMINAL_SUCCESS = {AuditEventType.TRANSACTION_COMPLETED}
 _TERMINAL_FAILURE = {AuditEventType.TRANSACTION_FAILED}
+
+_DEFAULT_SERVICE = "merchant_agent"
+
+
+def _service_for(component: str, event_type: AuditEventType) -> str:
+    if event_type in _PAYMENT_EVENT_TYPES:
+        return "payment_service"
+    if event_type in _RETRY_RECOVERY_EVENT_TYPES:
+        return "failure_handling"
+    # Any other event type (including TOOL_CALL/TOOL_SUCCESS/TOOL_FAILURE,
+    # and the generic REQUEST_RECEIVED/TRANSACTION_*/ORDER_CREATED types
+    # reused across layers) is attributed by who actually recorded it.
+    return _COMPONENT_TO_SERVICE.get(component, _DEFAULT_SERVICE)
 
 
 @dataclass
@@ -280,7 +313,7 @@ class MonitoringStore:
         return FailureRecord(
             failure_id=f"fail-{uuid.uuid4()}",
             transaction_id=event.transaction_id,
-            service=_SERVICE_FOR_EVENT_TYPE.get(event.event_type, _DEFAULT_SERVICE),
+            service=_service_for(event.component, event.event_type),
             error_type=event.error_code or event.event_type.value,
             error_message=event.error_message,
             retry_count=meta.retry_count if meta else 0,
@@ -419,7 +452,7 @@ class MonitoringStore:
                     timestamp=e.timestamp,
                     event_type=e.event_type.value,
                     transaction_id=e.transaction_id,
-                    service=_SERVICE_FOR_EVENT_TYPE.get(e.event_type, _DEFAULT_SERVICE),
+                    service=_service_for(e.component, e.event_type),
                     status=e.status,
                 )
                 for e in events
