@@ -31,11 +31,11 @@ router = APIRouter()
 # input) without changing the internal contract at all.
 # ---------------------------------------------------------------------------
 class AgentMessageHttpRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     request_id: Optional[str] = Field(default=None, alias="requestId")
-    session_id: str = Field(alias="sessionId")
-    user_id: str = Field(alias="userId")
+    session_id: Optional[str] = Field(default=None, alias="sessionId")
+    user_id: Optional[str] = Field(default=None, alias="userId")
     message: str
     channel: str = "web"
 
@@ -117,27 +117,29 @@ def post_agent_message(
     # before anything else so it can appear on every log line and error
     # response below, even ones produced before an AgentRequest exists.
     request_id = http_request.request_id or f"req-{uuid.uuid4()}"
+    session_id = http_request.session_id or f"session-{uuid.uuid4()}"
+    user_id = http_request.user_id or "1"
     request.state.request_id = request_id
-    request.state.session_id = http_request.session_id
-    request.state.user_id = http_request.user_id
+    request.state.session_id = session_id
+    request.state.user_id = user_id
 
     # 1. Authentication
     try:
         authorization = request.headers.get("authorization")
-        auth_service.authenticate(authorization=authorization, user_id=http_request.user_id)
+        auth_service.authenticate(authorization=authorization, user_id=user_id)
     except AuthenticationError as exc:
         return _error_response(request_id, 401, "Authentication failed", "AUTHENTICATION_FAILED", exc.message)
 
     # 2. Rate limiting
-    if not rate_limiter.allow(http_request.user_id):
+    if not rate_limiter.allow(user_id):
         return _error_response(
             request_id, 429, "Rate limit exceeded", "RATE_LIMIT_EXCEEDED", "Too many requests, please slow down"
         )
 
     # 3. Validation (deterministic, no LLM/business logic involved)
     validation_error = validate_incoming_message(
-        session_id=http_request.session_id,
-        user_id=http_request.user_id,
+        session_id=session_id,
+        user_id=user_id,
         message=http_request.message,
         channel=http_request.channel,
     )
@@ -146,8 +148,8 @@ def post_agent_message(
 
     # 4/5. Build the internal AgentRequest, propagating the requestId.
     agent_request = AgentRequest.new(
-        session_id=http_request.session_id,
-        user_id=http_request.user_id,
+        session_id=session_id,
+        user_id=user_id,
         message=http_request.message,
         channel=http_request.channel,
         request_id=request_id,

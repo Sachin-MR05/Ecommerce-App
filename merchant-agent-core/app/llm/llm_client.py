@@ -110,6 +110,7 @@ class OpenAIChatLLMClient(LLMClient):
             "model": self._model,
             "messages": openai_messages,
             "max_tokens": self._max_tokens,
+            "response_format": {"type": "json_object"},
         }
 
 
