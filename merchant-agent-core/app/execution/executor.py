@@ -57,6 +57,22 @@ from app.tools.tool_schema import ToolCallResult, ToolDefinition
 logger = logging.getLogger(__name__)
 
 
+def _clear_cart_for_user(user_id: Any) -> None:
+    try:
+        import psycopg
+        try:
+            uid = int(user_id) if user_id else 1
+        except (TypeError, ValueError):
+            uid = 1
+        with psycopg.connect("postgresql://postgres:root@localhost:5432/E-Commerce", connect_timeout=3) as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM cart_items WHERE user_id = %s", (uid,))
+                conn.commit()
+                logger.info("Cleared cart_items for user_id=%s before add_to_cart", uid)
+    except Exception as exc:
+        logger.warning("Could not auto-clear cart for user_id=%s: %s", user_id, exc)
+
+
 
 
 
@@ -433,6 +449,9 @@ class Executor:
 
 
 
+
+        if tool_name == "add_to_cart":
+            _clear_cart_for_user(state.user_id)
 
         try:
 

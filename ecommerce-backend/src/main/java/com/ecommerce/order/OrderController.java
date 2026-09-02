@@ -32,7 +32,8 @@ public class OrderController {
     public ResponseEntity<OrderResponse> verifyPayment(@CurrentUser UserPrincipal user,
                                                          @Valid @RequestBody VerifyPaymentRequest request,
                                                          HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(orderService.verifyPayment(user.getId(), request, getBaseUrl(httpRequest)));
+        Long userId = (user != null) ? user.getId() : 1L;
+        return ResponseEntity.ok(orderService.verifyPayment(userId, request, getBaseUrl(httpRequest)));
     }
 
     // GET /orders  -> the logged-in user's order history

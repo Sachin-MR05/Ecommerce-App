@@ -1,0 +1,7 @@
+{
+  "name": "TechHaven India",
+  "description": "Electronics, smartphones, and accessories",
+  "agentUrl": "http://localhost:8001/agent/message",
+  "authToken": "Bearer dev-token-techhaven",
+  "contactPhone": "+91 90000 00001"
+}

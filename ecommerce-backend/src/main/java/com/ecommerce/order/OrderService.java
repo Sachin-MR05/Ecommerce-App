@@ -77,6 +77,7 @@ public class OrderService {
 
         saved.setRazorpayOrderId(razorpayOrderId);
         orderRepository.save(saved);
+        cartRepository.deleteByUserId(userId);
 
         String paymentLink = razorpayService.createPaymentLink(razorpayOrderId, amountInPaise);
         return new CheckoutResponse(saved.getId(), razorpayOrderId, amountInPaise,

@@ -45,17 +45,15 @@ class MerchantAgentOrchestrator(AgentOrchestrator):
         return _to_agent_response(request.request_id, state)
 
 
-def _coerce_user_id(user_id: str) -> int | str:
+def _coerce_user_id(user_id: str) -> int:
     """MerchantAgent/AgentState carry user_id as Optional[int] today. Gateway
-    clients send userId as a string identifier (see AgentRequest); fall back
-    to the raw string if it isn't numeric, rather than raising, so an
-    unexpected id format surfaces as a normal agent failure/handled
-    response instead of a Gateway crash.
+    clients send userId as a string identifier. Default non-numeric strings
+    like 'demo-user' to integer 1 so Java Tool Layer authenticates correctly.
     """
     try:
         return int(user_id)
     except (TypeError, ValueError):
-        return user_id
+        return 1
 
 
 def _to_agent_response(request_id: str, state: AgentState) -> AgentResponse:

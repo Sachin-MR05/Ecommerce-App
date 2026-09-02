@@ -10,6 +10,7 @@ export default function Checkout() {
   const { user } = useAuth();
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [paidSuccess, setPaidSuccess] = useState(false);
 
   const keyId = searchParams.get('key');
   const razorpayOrderId = searchParams.get('order_id');
@@ -37,7 +38,10 @@ export default function Checkout() {
       onSuccess: async (payload) => {
         try {
           await orderService.verifyPayment(payload);
-          navigate('/orders');
+          setPaidSuccess(true);
+          if (user) {
+            setTimeout(() => navigate('/orders'), 2000);
+          }
         } catch (err) {
           setError(err.response?.data?.message || err.message);
         } finally {
@@ -54,6 +58,24 @@ export default function Checkout() {
       }
     });
   }, [keyId, razorpayOrderId, amount, currency, user, navigate]);
+
+  if (paidSuccess) {
+    return (
+      <div style={{ maxWidth: '500px', margin: '80px auto', textAlign: 'center', padding: '30px', border: '1px solid #111', borderRadius: '12px', background: '#fff' }}>
+        <div style={{ fontSize: '48px', marginBottom: '10px' }}>🎉</div>
+        <h2 style={{ color: '#2ecc71', margin: '0 0 10px 0' }}>Payment Successful!</h2>
+        <p style={{ color: '#555', fontSize: '15px' }}>
+          Your payment has been verified. Thank you for your purchase!
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          style={{ background: '#111', color: '#fff', border: 'none', padding: '10px 24px', fontSize: '14px', borderRadius: '6px', cursor: 'pointer', marginTop: '15px' }}
+        >
+          Return to Shop
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '500px', margin: '80px auto', textAlign: 'center' }}>
