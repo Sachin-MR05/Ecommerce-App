@@ -104,6 +104,19 @@ def _to_http_response(response: AgentResponse) -> AgentMessageHttpResponse:
     )
 
 
+@router.options("/agent/message")
+def options_agent_message():
+    return JSONResponse(
+        status_code=200,
+        content={"ok": True},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Requested-With",
+        },
+    )
+
+
 @router.post("/agent/message", response_model=AgentMessageHttpResponse, response_model_by_alias=True)
 def post_agent_message(
     http_request: AgentMessageHttpRequest,

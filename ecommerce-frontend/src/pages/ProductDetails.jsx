@@ -8,7 +8,7 @@ export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addItem } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,9 +52,16 @@ export default function ProductDetails() {
         </div>
 
         <div className="card-actions">
-          <button onClick={handleAddToCart} disabled={product.stock === 0}>
-            Add to Cart
-          </button>
+          {!isAdmin && (
+            <button onClick={handleAddToCart} disabled={product.stock === 0}>
+              Add to Cart
+            </button>
+          )}
+          {isAdmin && (
+            <button onClick={() => navigate(`/edit-product/${product.id}`)}>
+              Edit Product
+            </button>
+          )}
         </div>
       </article>
     </div>

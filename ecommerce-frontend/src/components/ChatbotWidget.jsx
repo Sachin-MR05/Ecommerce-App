@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const BUYER_AGENT_URL = 'http://localhost:8030/buyer/chat';
+const AGENT_URL = 'http://localhost:8001/agent/message';
 
 export default function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,7 +13,7 @@ export default function ChatbotWidget() {
     },
   ]);
   const [inputMessage, setInputMessage] = useState('');
-  const [chatId, setChatId] = useState(null);
+  const [sessionId, setSessionId] = useState(() => 'session-' + Math.random().toString(36).substring(2, 10));
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
@@ -51,14 +51,19 @@ export default function ChatbotWidget() {
     setIsLoading(true);
 
     try {
-      const payload = { message: text };
-      if (chatId) {
-        payload.chatId = chatId;
-      }
+      const payload = {
+        sessionId,
+        userId: '1',
+        message: text,
+        channel: 'web',
+      };
 
-      const res = await fetch(BUYER_AGENT_URL, {
+      const res = await fetch(AGENT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer dev-token',
+        },
         body: JSON.stringify(payload),
       });
 
@@ -67,15 +72,13 @@ export default function ChatbotWidget() {
       }
 
       const data = await res.json();
-      if (data.chatId) {
-        setChatId(data.chatId);
-      }
+      const replyText = data.message || (data.error ? data.error.message : 'I processed your request.');
 
       setMessages((prev) => [
         ...prev,
         {
           sender: 'assistant',
-          text: data.message || 'I processed your request.',
+          text: replyText,
         },
       ]);
     } catch (err) {
@@ -84,7 +87,7 @@ export default function ChatbotWidget() {
         ...prev,
         {
           sender: 'assistant',
-          text: 'Sorry, I am having trouble connecting to the assistant. Please make sure the Buyer Agent service is running.',
+          text: 'Sorry, I am having trouble connecting to the assistant. Please make sure the Merchant Agent service is running on port 8001.',
         },
       ]);
     } finally {

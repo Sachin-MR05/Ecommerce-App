@@ -26,7 +26,7 @@ export default function Navbar() {
           </>
         )}
 
-        {isAuthenticated && (
+        {isAuthenticated && !isAdmin && (
           <>
             <Link className="topbar-link" to="/cart">Cart ({cart.totalItems})</Link>
             <Link className="topbar-link" to="/orders">Orders</Link>

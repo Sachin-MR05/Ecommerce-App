@@ -103,11 +103,11 @@ def include_monitoring(
     app.include_router(monitoring_router)
     app.add_middleware(_ApiLatencyMiddleware)
 
-    origins = [o.strip() for o in dashboard_cors_origins.split(",") if o.strip()] or ["http://localhost:5173"]
+    origins = [o.strip() for o in dashboard_cors_origins.split(",") if o.strip()] + ["http://localhost:3000", "http://localhost:5173"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
+        allow_origins=["*"],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )

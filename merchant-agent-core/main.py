@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api import routes
 from app.agent.merchant_agent import MerchantAgent
@@ -89,6 +90,13 @@ def create_app() -> FastAPI:
     )
 
     application = FastAPI(title="Merchant Agent Core")
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     application.include_router(routes.router)
     application.dependency_overrides[routes.get_merchant_agent] = get_merchant_agent
     application.state.transaction_orchestrator = transaction_orchestrator
@@ -108,6 +116,15 @@ def create_app() -> FastAPI:
         tool_service_url=settings.tool_service_url,
         dashboard_cors_origins=settings.dashboard_cors_origins,
         store=monitoring_store,
+    )
+
+    # Added last so CORSMiddleware is the outermost middleware executing before everything else
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @application.on_event("shutdown")

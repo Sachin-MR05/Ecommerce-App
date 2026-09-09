@@ -49,6 +49,7 @@ public class OrderService {
         double total = 0;
         for (CartItem cartItem : cartItems) {
             Product product = productRepository.findById(cartItem.getProductId())
+            Product product = productRepository.findByIdWithLock(cartItem.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Product not found with id: " + cartItem.getProductId()));
 
@@ -56,6 +57,11 @@ public class OrderService {
                 throw new PaymentException(
                         "Only " + product.getStock() + " unit(s) of '" + product.getName() + "' left in stock");
             }
+
+            // Thread-safe stock reduction with row lock
+            int remainingStock = product.getStock() - cartItem.getQuantity();
+            product.setStock(remainingStock);
+            productRepository.save(product);
 
             double lineTotal = product.getPrice() * cartItem.getQuantity();
             total += lineTotal;
@@ -87,6 +93,8 @@ public class OrderService {
     /**
      * Verifies the payment Razorpay's Checkout widget reports back, and if
      * genuine: marks the order PAID, decrements stock, and empties the cart.
+     * genuine: marks the order PAID and records the payment IDs.
+     * If invalid: marks FAILED and restores reserved stock.
      */
     @Transactional
     public OrderResponse verifyPayment(Long userId, VerifyPaymentRequest request, String baseUrl) {
@@ -97,11 +105,23 @@ public class OrderService {
             throw new ResourceNotFoundException("Order not found");
         }
 
+        // Idempotency: if already marked PAID, return existing order immediately
+        if (order.getStatus() == OrderStatus.PAID) {
+            return OrderResponse.fromEntity(order, baseUrl);
+        }
+
         boolean valid = razorpayService.verifySignature(
                 request.getRazorpayOrderId(), request.getRazorpayPaymentId(), request.getRazorpaySignature());
 
         if (!valid) {
             order.setStatus(OrderStatus.FAILED);
+            // Restore stock on payment verification failure
+            for (OrderItem item : order.getItems()) {
+                productRepository.findByIdWithLock(item.getProductId()).ifPresent(product -> {
+                    product.setStock(product.getStock() + item.getQuantity());
+                    productRepository.save(product);
+                });
+            }
             orderRepository.save(order);
             throw new PaymentException("Payment verification failed - please try again");
         }

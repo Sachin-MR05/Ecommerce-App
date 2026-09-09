@@ -36,9 +36,11 @@ export default function ProductCard({ product, onDelete }) {
       </div>
 
       <div className="card-actions">
-        <button onClick={handleAddToCart} disabled={product.stock === 0}>
-          Add to Cart
-        </button>
+        {!isAdmin && (
+          <button onClick={handleAddToCart} disabled={product.stock === 0}>
+            Add to Cart
+          </button>
+        )}
 
         {isAdmin && (
           <>

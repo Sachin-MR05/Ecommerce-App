@@ -115,13 +115,11 @@ export default function AdminDashboardPreview() {
   const agentSharePct  = totalCount > 0 ? ((agentOrders.length / totalCount) * 100).toFixed(1) : '0.0';
   const directSharePct = totalCount > 0 ? ((myOrders.length  / totalCount) * 100).toFixed(1) : '0.0';
 
-  // Monitoring telemetry — exact field paths from the Python service with live order fallbacks
-  const apiLatency    = perfMetrics?.api_latency_ms != null ? `${perfMetrics.api_latency_ms.toFixed(1)} ms` : '7.2 ms';
-  const reqRate       = perfMetrics?.request_rate_per_min != null ? `${perfMetrics.request_rate_per_min.toFixed(1)} / min` : '12.0 / min';
-  const totalTx       = (overviewMetrics?.total_transactions && overviewMetrics.total_transactions > 0) ? overviewMetrics.total_transactions : agentOrders.length;
-  const successRate   = (overviewMetrics?.success_rate != null && overviewMetrics.success_rate > 0) ? `${(overviewMetrics.success_rate * 100).toFixed(1)}%` : (agentOrders.length > 0 ? `${((agentPaidOrders.length / agentOrders.length) * 100).toFixed(1)}%` : '100.0%');
-  const displayAuditCount = (auditCount != null && auditCount > 0) ? auditCount : agentOrders.length;
-  const displayFailureCount = (failureCount != null && failureCount > 0) ? failureCount : agentFailedOrders.length;
+  // Monitoring telemetry — exact field paths from the Python service
+  const apiLatency    = perfMetrics?.api_latency_ms != null ? `${perfMetrics.api_latency_ms.toFixed(1)} ms` : 'N/A';
+  const reqRate       = perfMetrics?.request_rate_per_min != null ? `${perfMetrics.request_rate_per_min.toFixed(1)} / min` : 'N/A';
+  const totalTx       = overviewMetrics?.total_transactions ?? 'N/A';
+  const successRate   = overviewMetrics?.success_rate != null ? `${(overviewMetrics.success_rate * 100).toFixed(1)}%` : 'N/A';
 
   const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
 
@@ -193,8 +191,8 @@ export default function AdminDashboardPreview() {
         {metricTile('Request Rate', reqRate, null)}
         {metricTile('Agent Transactions', String(totalTx), null)}
         {metricTile('Agent Success Rate', successRate, overviewMetrics?.success_rate != null ? overviewMetrics.success_rate > 0.8 : null)}
-        {metricTile('Audit Events', String(displayAuditCount), null)}
-        {metricTile('Recorded Failures', String(displayFailureCount), displayFailureCount === 0 ? true : false)}
+        {metricTile('Audit Events', auditCount != null ? String(auditCount) : 'N/A', null)}
+        {metricTile('Recorded Failures', failureCount != null ? String(failureCount) : 'N/A', failureCount === 0 ? true : failureCount > 0 ? false : null)}
       </div>
 
       {/* Comparison + Status Row */}
