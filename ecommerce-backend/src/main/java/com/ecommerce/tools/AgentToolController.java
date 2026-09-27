@@ -1,6 +1,7 @@
 package com.ecommerce.tools;
 
 import com.ecommerce.tools.contract.ToolError;
+import com.ecommerce.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
@@ -27,10 +28,13 @@ public class AgentToolController {
 
     private final AgentToolRegistry agentToolRegistry;
     private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
 
-    public AgentToolController(AgentToolRegistry agentToolRegistry, ObjectMapper objectMapper) {
+    public AgentToolController(AgentToolRegistry agentToolRegistry, ObjectMapper objectMapper,
+                               UserRepository userRepository) {
         this.agentToolRegistry = agentToolRegistry;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+        this.userRepository = userRepository;
     }
 
     @GetMapping
@@ -103,12 +107,16 @@ public class AgentToolController {
         if (val instanceof Number) {
             return ((Number) val).longValue();
         }
-        if (val instanceof String) {
+        if (val instanceof String strVal && !strVal.isBlank()) {
+            // Try numeric parse first (fast path, no DB hit)
             try {
-                return Long.parseLong((String) val);
-            } catch (NumberFormatException e) {
-                return null;
+                return Long.parseLong(strVal);
+            } catch (NumberFormatException ignored) {
+                // Not a number — treat as agentUsername; resolve via indexed DB lookup
             }
+            return userRepository.findByUsername(strVal)
+                    .map(u -> u.getId())
+                    .orElse(null);
         }
         return null;
     }

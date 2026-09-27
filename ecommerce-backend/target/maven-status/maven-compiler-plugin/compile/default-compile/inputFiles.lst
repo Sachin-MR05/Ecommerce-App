@@ -10,8 +10,10 @@ D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\auth\LoginRequest
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\auth\RegisterRequest.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\config\CorsConfig.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\config\DataSeeder.java
+D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\controller\AgentUserController.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\controller\CartController.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\controller\ProductController.java
+D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\dto\AgentManifestResponse.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\dto\CartItemRequest.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\dto\CartItemResponse.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\dto\CartResponse.java
@@ -47,6 +49,7 @@ D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\security\JwtServi
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\security\SecurityConfig.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\security\UserDetailsServiceImpl.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\security\UserPrincipal.java
+D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\service\AgentUserService.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\service\CartService.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\service\ProductService.java
 D:\Ecommerce-App\ecommerce-backend\src\main\java\com\ecommerce\tools\AbstractAgentTool.java

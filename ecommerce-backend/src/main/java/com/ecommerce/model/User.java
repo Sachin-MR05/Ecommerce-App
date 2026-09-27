@@ -28,6 +28,9 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    @Column(name = "agent_of_user_id", nullable = true)
+    private Long agentOfUserId;
+
     public User() {
     }
 
@@ -36,6 +39,14 @@ public class User {
         this.email = email;
         this.password = password;
         this.role = role;
+    }
+
+    public User(String username, String email, String password, Role role, Long agentOfUserId) {
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.agentOfUserId = agentOfUserId;
     }
 
     public Long getId() {
@@ -76,5 +87,17 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public Long getAgentOfUserId() {
+        return agentOfUserId;
+    }
+
+    public void setAgentOfUserId(Long agentOfUserId) {
+        this.agentOfUserId = agentOfUserId;
+    }
+
+    public boolean isAgent() {
+        return agentOfUserId != null;
     }
 }

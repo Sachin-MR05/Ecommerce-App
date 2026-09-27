@@ -49,6 +49,13 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrder(user.getId(), id, getBaseUrl(request)));
     }
 
+    // POST /orders/{id}/cancel -> cancel order and release reserved stock
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<OrderResponse> cancelOrder(@CurrentUser UserPrincipal user, @PathVariable Long id,
+                                                      HttpServletRequest request) {
+        return ResponseEntity.ok(orderService.cancelOrder(user.getId(), id, getBaseUrl(request)));
+    }
+
     private String getBaseUrl(HttpServletRequest request) {
         return request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
     }

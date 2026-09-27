@@ -6,6 +6,7 @@ com\ecommerce\tools\model\ToolResponse.class
 com\ecommerce\security\UserPrincipal.class
 com\ecommerce\exception\InsufficientStockException.class
 com\ecommerce\model\OrderItem.class
+com\ecommerce\service\AgentUserService.class
 com\ecommerce\order\CheckoutResponse.class
 com\ecommerce\tools\order\GetOrdersTool.class
 com\ecommerce\tools\payment\VerifyPaymentTool.class
@@ -31,6 +32,7 @@ com\ecommerce\tools\cart\AddToCartTool.class
 com\ecommerce\model\Role.class
 com\ecommerce\order\OrderController.class
 com\ecommerce\tools\model\ToolValidationException.class
+com\ecommerce\controller\AgentUserController.class
 com\ecommerce\order\OrderResponse.class
 com\ecommerce\tools\contract\ToolResponse.class
 com\ecommerce\tools\AbstractAgentTool.class
@@ -40,6 +42,7 @@ com\ecommerce\adapter\merchant\dto\PaymentVerificationResult.class
 com\ecommerce\tools\product\GetProductTool.class
 com\ecommerce\service\CartService.class
 com\ecommerce\config\CorsConfig$1.class
+com\ecommerce\dto\AgentManifestResponse.class
 com\ecommerce\tools\AgentToolRegistry.class
 com\ecommerce\EcommerceApplication.class
 com\ecommerce\tools\cart\RemoveFromCartTool.class

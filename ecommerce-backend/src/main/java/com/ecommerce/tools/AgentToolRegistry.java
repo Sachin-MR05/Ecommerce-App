@@ -59,7 +59,7 @@ public class AgentToolRegistry {
      */
     public ToolResponse execute(String toolName, ToolRequest request) {
         AgentTool tool = toolsByName.get(toolName);
-        if (tool == null) {
+        if (tool == null) {     
             return ToolResponse.failure("TOOL_NOT_FOUND", "No tool registered with name: " + toolName);
         }
         return tool.execute(request);
