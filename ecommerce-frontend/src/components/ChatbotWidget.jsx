@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import apiClient from '../services/apiClient';
 
 const AGENT_URL = 'http://localhost:8001/agent/message';
 
 export default function ChatbotWidget() {
+  const { isAuthenticated, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showAgentInfo, setShowAgentInfo] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -17,13 +21,24 @@ export default function ChatbotWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const manifest = {
+  const [manifest, setManifest] = useState({
     name: 'TechHaven India',
     description: 'Electronics, smartphones, and accessories',
     agentUrl: 'http://localhost:8001/agent/message',
     authToken: 'Bearer dev-token-techhaven',
+    userId: 1,
     contactPhone: '+91 90000 00001',
-  };
+  });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      apiClient.get('/api/agent/manifest')
+        .then((res) => {
+          if (res.data) setManifest(res.data);
+        })
+        .catch((err) => console.warn('Could not load dedicated agent manifest:', err.message));
+    }
+  }, [isAuthenticated]);
 
   const handleCopyManifest = () => {
     navigator.clipboard.writeText(JSON.stringify(manifest, null, 2));
@@ -53,7 +68,7 @@ export default function ChatbotWidget() {
     try {
       const payload = {
         sessionId,
-        userId: '1',
+        userId: manifest?.userId ? String(manifest.userId) : '1',
         message: text,
         channel: 'web',
       };
@@ -224,6 +239,16 @@ export default function ChatbotWidget() {
               <p style={{ margin: 0, fontSize: '12px', color: '#555555', lineHeight: '1.4' }}>
                 Copy this manifest to connect your personal Buyer Agent directly to our merchant store:
               </p>
+
+              {isAuthenticated ? (
+                <div style={{ fontSize: '11.5px', fontWeight: 'bold', color: '#2b8a3e', background: '#ebfbee', padding: '4px 8px', borderRadius: '4px' }}>
+                  ● Assigned to: {user?.username} (Dedicated Agent ID: {manifest.userId})
+                </div>
+              ) : (
+                <div style={{ fontSize: '11px', color: '#856404', background: '#fff3cd', padding: '4px 8px', borderRadius: '4px' }}>
+                  ℹ️ <Link to="/login" style={{ color: '#533f03', fontWeight: 'bold' }}>Log in</Link> to get a dedicated Agent User ID.
+                </div>
+              )}
 
               <pre
                 style={{

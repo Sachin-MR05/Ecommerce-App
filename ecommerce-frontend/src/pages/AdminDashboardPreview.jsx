@@ -30,34 +30,62 @@ export default function AdminDashboardPreview() {
     setLoading(true);
     setError(null);
 
-    // 1. Admin's own orders (JWT-authenticated)
+    // 1. Fetch all Agent IDs registered in the system
+    let agentIds = [1];
     try {
-      const res = await apiClient.get('/orders');
-      setMyOrders(res.data || []);
-    } catch (e) {
-      console.warn('Admin orders failed:', e.message);
-      setError('Could not load orders. Please ensure you are logged in as Admin.');
-    }
-
-    // 2. Agent orders (userId=1) via agent tool endpoint — no JWT required
-    try {
-      const res = await apiClient.post('/tools/execute', {
-        toolName: 'get_orders',
-        requestId: 'admin-dashboard-agent-orders',
-        context: { userId: 1 },
-        arguments: {},
-      });
-      const payload = res.data;
-      const agentData = payload?.result;
-      if (payload?.success && Array.isArray(agentData)) {
-        setAgentOrders(agentData);
-      } else if (payload?.success && agentData) {
-        setAgentOrders([agentData]);
-      } else {
-        setAgentOrders([]);
+      const idsRes = await apiClient.get('/api/agent/ids');
+      if (Array.isArray(idsRes.data)) {
+        agentIds = Array.from(new Set([1, ...idsRes.data]));
       }
     } catch (e) {
-      console.warn('Agent orders failed:', e.message);
+      console.warn('Could not fetch agent IDs:', e.message);
+    }
+
+    // 2. Fetch all orders for all Agent IDs
+    try {
+      const agentOrderPromises = agentIds.map((id) =>
+        apiClient.post('/tools/execute', {
+          toolName: 'get_orders',
+          requestId: `admin-dash-agent-${id}`,
+          context: { userId: id },
+          arguments: {},
+        }).catch(() => null)
+      );
+      const responses = await Promise.all(agentOrderPromises);
+      const collectedAgentOrders = [];
+      responses.forEach((res) => {
+        const list = res?.data?.result;
+        if (Array.isArray(list)) {
+          collectedAgentOrders.push(...list);
+        }
+      });
+      setAgentOrders(collectedAgentOrders);
+    } catch (e) {
+      console.warn('Agent orders fetch failed:', e.message);
+    }
+
+    // 3. Fetch Direct Customer Orders (User IDs 2..20 excluding agent IDs)
+    try {
+      const customerIds = [2, 3, 4, 5, 6, 7, 8, 9, 10].filter((id) => !agentIds.includes(id));
+      const directPromises = customerIds.map((id) =>
+        apiClient.post('/tools/execute', {
+          toolName: 'get_orders',
+          requestId: `admin-dash-cust-${id}`,
+          context: { userId: id },
+          arguments: {},
+        }).catch(() => null)
+      );
+      const directResponses = await Promise.all(directPromises);
+      const collectedDirectOrders = [];
+      directResponses.forEach((res) => {
+        const list = res?.data?.result;
+        if (Array.isArray(list)) {
+          collectedDirectOrders.push(...list);
+        }
+      });
+      setMyOrders(collectedDirectOrders);
+    } catch (e) {
+      console.warn('Direct customer orders fetch failed:', e.message);
     }
 
     // 3. Python Merchant Agent — performance metrics
@@ -104,7 +132,15 @@ export default function AdminDashboardPreview() {
   const directRevenue       = myOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
   const directPaidRevenue   = directPaidOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
 
-  const allOrders      = [...agentOrders, ...myOrders];
+  const allOrders = [
+    ...agentOrders.map((o) => ({ ...o, isAgent: true })),
+    ...myOrders.map((o) => ({ ...o, isAgent: false })),
+  ].sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (dateB !== dateA) return dateB - dateA;
+    return (b.id || 0) - (a.id || 0);
+  });
   const totalCount     = allOrders.length;
   const paidOrders     = allOrders.filter((o) => o.status === 'PAID');
   const pendingOrders  = allOrders.filter((o) => o.status === 'CREATED');
@@ -295,24 +331,25 @@ export default function AdminDashboardPreview() {
                 </tr>
               </thead>
               <tbody>
-                {agentOrders.map((order) => (
-                  <tr key={`a-${order.id}`} style={{ borderBottom: '1px solid #eee', background: '#fafcff' }}>
+                {allOrders.map((order) => (
+                  <tr
+                    key={`${order.isAgent ? 'a' : 'd'}-${order.id}`}
+                    style={{ borderBottom: '1px solid #eee', background: order.isAgent ? '#fafcff' : '#fff' }}
+                  >
                     <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700 }}>#{order.id}</td>
-                    <td style={{ padding: '0.6rem 0.8rem' }}>{badge('AI Agent', '#dce8fc', '#1a4fa8')}</td>
-                    <td style={{ padding: '0.6rem 0.8rem', fontFamily: 'monospace', fontSize: '0.78rem', color: '#666' }}>{order.razorpayOrderId || '—'}</td>
+                    <td style={{ padding: '0.6rem 0.8rem' }}>
+                      {order.isAgent
+                        ? badge('AI Agent', '#dce8fc', '#1a4fa8')
+                        : badge('Direct App', '#e2f2e9', '#1a5c2a')}
+                    </td>
+                    <td style={{ padding: '0.6rem 0.8rem', fontFamily: 'monospace', fontSize: '0.78rem', color: '#666' }}>
+                      {order.razorpayOrderId || '—'}
+                    </td>
                     <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700 }}>Rs.&nbsp;{fmt(order.totalAmount)}</td>
                     <td style={{ padding: '0.6rem 0.8rem' }}>{statusBadge(order.status)}</td>
-                    <td style={{ padding: '0.6rem 0.8rem', color: '#777', fontSize: '0.78rem' }}>{order.createdAt ? new Date(order.createdAt).toLocaleString() : '—'}</td>
-                  </tr>
-                ))}
-                {myOrders.map((order) => (
-                  <tr key={`d-${order.id}`} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700 }}>#{order.id}</td>
-                    <td style={{ padding: '0.6rem 0.8rem' }}>{badge('Direct App', '#e2f2e9', '#1a5c2a')}</td>
-                    <td style={{ padding: '0.6rem 0.8rem', fontFamily: 'monospace', fontSize: '0.78rem', color: '#666' }}>{order.razorpayOrderId || '—'}</td>
-                    <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700 }}>Rs.&nbsp;{fmt(order.totalAmount)}</td>
-                    <td style={{ padding: '0.6rem 0.8rem' }}>{statusBadge(order.status)}</td>
-                    <td style={{ padding: '0.6rem 0.8rem', color: '#777', fontSize: '0.78rem' }}>{order.createdAt ? new Date(order.createdAt).toLocaleString() : '—'}</td>
+                    <td style={{ padding: '0.6rem 0.8rem', color: '#777', fontSize: '0.78rem' }}>
+                      {order.createdAt ? new Date(order.createdAt).toLocaleString() : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
