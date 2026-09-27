@@ -2,7 +2,7 @@
 
 <img src="assert/banner_image.png" alt="Ecommerce-App — a real storefront wired to speak agent-to-agent" width="100%" />
 
-#  Ecommerce-App
+# [Ecommerce-App](https://ecommerce-app-rosy-rho.vercel.app)
 
 ### A real storefront's backend, plus the agent layer that makes it reachable by any buyer's AI
 
